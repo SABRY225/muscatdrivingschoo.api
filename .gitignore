@@ -1,0 +1,9 @@
+.env
+/node_modules
+images/*
+/firebaseConfig.js
+/.htaccess
+/invoices
+/.well-known
+/muscat-driving-school-firebase-adminsdk-pb7yd-c02a103976.json
+
