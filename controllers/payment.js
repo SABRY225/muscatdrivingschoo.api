@@ -23,6 +23,7 @@ const {
   generateSessionConfirmationSMSBody,
   generateSessionPaymentConfirmationSMS,
 } = require("../utils/SMSBodyGenerator");
+const { sendWhatsAppTemplate } = require("../utils/whatsapp");
 const StudentLecture = require("../models/StudentLecture");
 dotenv.config();
 const charge = async (req, res) => {
@@ -140,6 +141,19 @@ const checkoutSuccess = async (req, res) => {
   };
   sendEmail(mailOptions, smsOptions);
   global.newPrice = null;
+
+  // إرسال رسالة واتساب تأكيد الدفع
+  await sendWhatsAppTemplate({
+    to: student.phoneNumber,
+    templateName: "charge_confirmation",
+    variables: [
+      student.name || "الاسم",
+      global.price || "السعر",
+      global.currency || "العملة"
+    ],
+    language: language === "ar" ? "ar" : "en_US",
+    recipientName: student.name || "الطالب"
+  });
 
   res.send({
     status: 201,
@@ -310,6 +324,25 @@ const booking = async (req, res) => {
       to: student.phoneNumber,
     };
     sendEmail(mailOptions, smsOptions);
+    // استخراج الوقت من session.date إذا كان بصيغة ISO
+    const dateObj = new Date(session.date);
+    const dateStr = dateObj.toLocaleDateString('ar-EG'); // أو حسب اللغة المطلوبة
+    const timeStr = dateObj.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }); // الساعة فقط
+
+    await sendWhatsAppTemplate({
+      to: student.phoneNumber,
+      templateName: "confirm_session",
+      variables: [
+        student.name,
+        teacher.firstName + " " + teacher.lastName,
+        dateStr,
+        timeStr,
+        session.period,
+        session.place || session.location || "أونلاين"
+      ],
+      language: language === "ar" ? "ar" : "en_US",
+      recipientName: student.name || "اسم الطالب"
+    });
 
     const mailOption = generateTeacherSessionNoticeEmail(
       language,
@@ -332,6 +365,21 @@ const booking = async (req, res) => {
       to: teacher.phone,
     };
     sendEmail(mailOption, smsOptions2);
+    // إرسال رسالة واتساب تأكيد الدفع للمعلم  
+    await sendWhatsAppTemplate({
+      to: teacher.phone,
+      templateName: "confirm_session",
+      variables: [
+        teacher.firstName + " " + teacher.lastName,
+        student.name,
+        dateStr,
+        timeStr,
+        session.period,
+        session.place || session.location || "أونلاين"
+      ],
+      language: language === "ar" ? "ar" : "en_US",
+      recipientName: teacher.firstName + " " + teacher.lastName || "اسم الطالب"
+    });
 
     res.send({
       status: 201,
@@ -436,7 +484,28 @@ const bookingSuccess = async (req, res) => {
     to: student.phoneNumber,
   };
   sendEmail(mailOptions1, smsOptions1);
+  // إرسال رسالة واتساب تأكيد الدفع للطالب  
+  // استخراج التاريخ والوقت بشكل مناسب
+const dateObj = new Date(session.date);
+const dateStr = dateObj.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }); // June 10, 2025
+const timeStr = dateObj.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }); // 03:00 PM
 
+await sendWhatsAppTemplate({
+  to: student.phoneNumber,
+  templateName: "payment_confirmation",
+  variables: [
+    student.name,                                   // 1. اسم الطالب
+    teacher.firstName + " " + teacher.lastName,     // 2. اسم المعلم
+    dateStr,                                        // 3. التاريخ
+    timeStr,                                        // 4. الوقت
+    session.type,                                   // 5. المكان (نوع الجلسة)
+    session.period,                                 // 6. المدة
+    `${session.price} ${session.currency}`,         // 7. سعر الساعة مع العملة
+    `${session.totalPrice} ${session.currency}`     // 8. المبلغ الإجمالي مع العملة
+  ],
+  language: language === "ar" ? "ar" : "en_US",
+  recipientName: student.name
+});
   const mailOptions = generateSessionConfirmationEmail(
     language,
     student.email,

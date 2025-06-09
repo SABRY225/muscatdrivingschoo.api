@@ -38,6 +38,8 @@ const {
   generateConfirmEmailSMSBody,
   generateWelcomeSMSBody,
 } = require("../utils/SMSBodyGenerator");
+const sendWhatsAppVerificationCode = require("../utils/sendWhatsAppVerificationCode");
+const { sendWhatsAppTemplate } = require("../utils/whatsapp");
 const StudentLecture = require("../models/StudentLecture");
 dotenv.config();
 
@@ -108,6 +110,12 @@ const signUp = async (req, res) => {
     to: phoneNumber,
   };
   sendEmail(mailOptions, smsOptions);
+   await sendWhatsAppVerificationCode(
+  phoneNumber,    // رقم الهاتف
+  code,           // كود التحقق
+  language        // اللغة (ar أو en_US)
+);
+
   res.send({
     status: 201,
     msg: { arabic: "تم ارسال الإيميل بنجاح", english: "successful send email" },
@@ -214,6 +222,16 @@ const signPassword = async (req, res) => {
     to: student.phoneNumber,
   };
   sendEmail(mailOptions, smsOptions);
+
+// بعد تسجيل الطالب بنجاح
+await sendWhatsAppTemplate({
+  to: student.phoneNumber,
+  templateName: "hello_user",
+  variables: [student.name || "student"],
+  language: language === "ar" ? "ar" : "en_US",
+  recipientName: student.name || "student"
+});
+
   student = {
     id: student.id,
     email: student.email,
@@ -587,6 +605,7 @@ const getSingleTeacher = async (req, res) => {
     },
   });
   }
+
   let currencyConverter = new CC();
 
   if (teacher.RemoteSession) {
