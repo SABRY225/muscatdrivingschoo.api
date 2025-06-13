@@ -60,7 +60,11 @@ const Discounts = Sequelize.define(
       type: DataTypes.DOUBLE,
       defaultValue: 0,
     },
-
+    currency: {
+      type: DataTypes.STRING,
+      defaultValue: "OMR",
+      allowNull: false,
+    },
     amountAfterDiscount: {
       type: DataTypes.DOUBLE,
       defaultValue: 0,
@@ -70,7 +74,30 @@ const Discounts = Sequelize.define(
       type: DataTypes.STRING,
       defaultValue: "",
     },
-    
+  curriculums: {
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
+  class: {
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
+  semester: {
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
+    subject: {
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
+      linkDiscount: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  docs: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
     status: {
       type: DataTypes.TINYINT,
       defaultValue: "1",

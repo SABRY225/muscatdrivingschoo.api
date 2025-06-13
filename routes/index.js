@@ -5,7 +5,7 @@ router.get('/', function(req, res, next) {
   res.status(200).json({ 'message' :  response})
 });
 
-
+const inviteRouter = require("./Invite");
 const adminRouter     = require("./admin");
 const studentRouter   = require("./student");
 const teacherRouter   = require("./teacher");
@@ -35,5 +35,6 @@ router.post("/forgetPassword", errorCatcher(forgetPassword));
 router.post("/forgetPassword/code", errorCatcher(verifyCodeForgottenPassword));
 router.post("/forgetPassword/edit", errorCatcher(editForgottenPassword));
 router.use("/currency", currencyRouter);
+router.use("/invite", inviteRouter);
 
 module.exports = router;

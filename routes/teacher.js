@@ -30,6 +30,7 @@ const {
   deleteTest,           getDiscountByTeacherId,   getSingleDiscount,       
   createDiscount,       deleteDiscount,           updateDiscount,
   getRefundTeacherById,getAllTeachersRating,      createExchangeRequestsTeacher,
+  getSessionsByTeacher,
 } = require("../controllers/teacher");
 const errorCatcher    = require("../middlewares/errorCatcher");
 const verifyToken     = require("../middlewares/verifyToken");
@@ -126,11 +127,14 @@ teacherRouter.get("/test/:testId",          errorCatcher(getSingleTest));
 teacherRouter.delete( "/tests/:testId",     verifyToken,    checkUserAuth("teacher"),     errorCatcher(deleteTest) );
 teacherRouter.put("/tests/:testId",            updateTest);
 
-teacherRouter.post("/discount",               verifyToken,  checkUserAuth("teacher"),    errorCatcher(createDiscount));
-teacherRouter.get("/discounts/:teacherId",    verifyToken,  checkUserAuth("teacher"),     errorCatcher(getDiscountByTeacherId));
+teacherRouter.post("/discount",                   errorCatcher(createDiscount));
+teacherRouter.get("/discounts/:teacherId",    errorCatcher(getDiscountByTeacherId));
 teacherRouter.get("/discount/:discountId",    errorCatcher(getSingleDiscount));
 teacherRouter.delete("/discount/:discountId", verifyToken,  checkUserAuth("teacher"),    errorCatcher(deleteDiscount) );
-teacherRouter.put("/discount/:discountId",    verifyToken,  checkUserAuth("teacher"),    errorCatcher(updateDiscount));
+teacherRouter.put("/discount/:discountId",        errorCatcher(updateDiscount));
 teacherRouter.get("/refunds/:TeacherId",      errorCatcher(getRefundTeacherById));
 
+
+teacherRouter.get("/get-bills-teacher/:teacherId", errorCatcher(getSessionsByTeacher));
+// teacherRouter.get("/:id/days", errorCatcher(availbleTeacher));
 module.exports = teacherRouter;

@@ -2723,52 +2723,36 @@ const getSingleDiscount= async (req, res) => {
 };
 
 const createDiscount = async (req, res) => {
-  
-  const { TeacherId ,titleAR,               titleEN,    descriptionAR, descriptionEN , 
-    discountType,    conditionsAR,          conditionsEN, startDate,  endDate,
-    percentage,      amountBeforeDiscount,  amountAfterDiscount,
-  } = req.body;
-  
+    try {
+    const data = req.body;
+    if (req.files && req.files.length > 0) {
+      req.files.forEach(file => {
+        if (file.fieldname === "docs") {
+          data.docs = file.filename; // أو URL حسب طريقة التخزين
+        } else if (file.fieldname === "image") {
+          data.image = file.filename;
+        }
+      });
+    }
+    await Discounts.create(data);
 
-  const image = req.file.filename;
-  const objTeacher = await Teacher.findOne({
-    where: {
-      id : TeacherId,
-    },
-  });
-
-  if (!objTeacher)
-    throw serverErrs.BAD_REQUEST({
-      arabic: "المدرب غير مسجل سابقا",
-      english: "Teacher is not found",
+    res.send({
+      status: 200,
+      message: {
+        arabic: "تم انشاء خصم جديدة",
+        english: "A new Discount has been created.",
+      },
     });
-  
-  const newDiscount = await Discounts.create({
-    TeacherId     : TeacherId,
-    titleAR       : titleAR,
-    titleEN       : titleEN,
-    descriptionAR : descriptionAR,
-    descriptionEN : descriptionEN,
-    discountType  : discountType,
-    conditionsAR  : conditionsAR,
-    conditionsEN  : conditionsEN,
-    startDate     : startDate,
-    endDate       : endDate,
-    percentage    : percentage,
-    amountBeforeDiscount    : amountBeforeDiscount,
-    amountAfterDiscount     : amountAfterDiscount,
-    image         : image,
-  });
-
-  await newDiscount.save();
-  res.send({
-    status: 201,
-    data: newDiscount,
-    msg: {
-      arabic: "تم إنشاء الخصومه بنجاح",
-      english: "successful create new discount",
-    },
-  });
+  } catch (error) {
+    res.status(500).send({
+      status: 500,
+      error: error.message,
+      message: {
+        arabic: "حدث خطأ أثناء إنشاء الخصم",
+        english: "An error occurred while creating the discount",
+      },
+    });
+  }
 };
 
 const deleteDiscount = async (req, res) => {
@@ -2793,81 +2777,52 @@ const deleteDiscount = async (req, res) => {
 };
 
 const updateDiscount = async (req, res) => {
-  const { discountId } = req.params;
-  const objDiscount = await Discounts.findOne({
-    where: { id: discountId },
-  });
+  
+   try {
+    const { discountId } = req.params;
+    const discount = await Discounts.findByPk(discountId);
+    if (!discount) {
+      return res.status(404).send({
+        status: 404,
+        message: {
+          arabic: "الخصم غير موجود",
+          english: "Discount not found",
+        },
+      });
+    }
 
-  if (!objDiscount) {
-    throw serverErrs.BAD_REQUEST({
-      arabic: "الخصومه الخاصه غير موجود",
-      english: "Discount not found",
+    const data = req.body;
+    if (req.files && req.files.length > 0) {
+      req.files.forEach(file => {
+        if (file.fieldname === "docs") {
+          data.docs = file.filename; // أو URL حسب طريقة التخزين
+        } else if (file.fieldname === "image") {
+          data.image = file.filename;
+        }
+      });
+    }
+
+    await discount.update(data);
+
+    res.send({
+      status: 200,
+      message: {
+        arabic: "تم تحديث الخصم بنجاح",
+        english: "Discount updated successfully",
+      },
     });
-  };
-
-  const clearImage = (filePath) => {
-    filePath = path.join(__dirname, "..", `images/${filePath}`);
-    fs.unlink(filePath, (err) => {
-      if (err)
-        throw serverErrs.BAD_REQUEST({
-          arabic: "الصورة غير موجودة",
-          english: "Image not found",
-        });
+    
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({
+      status: 500,
+      message: {
+        arabic: "حدث خطأ في الخادم",
+        english: "Server error",
+      },
+      error: error.message,
     });
   }
-
-  if (req.file && objDiscount.image) {
-    clearImage(objDiscount.image);
-  }
-  if (req.file) {
-    await objDiscount.update({ image: req.file.filename });
-  }
-
-  const {
-    TeacherId     : TeacherId,
-    titleAR       : titleAR,
-    titleEN       : titleEN,
-    descriptionAR : descriptionAR,
-    descriptionEN : descriptionEN,
-    discountType  : discountType,
-    conditionsAR  : conditionsAR,
-    conditionsEN  : conditionsEN,
-    startDate     : startDate,
-    endDate       : endDate,
-    percentage    : percentage,
-    amountBeforeDiscount    : amountBeforeDiscount,
-    amountAfterDiscount     : amountAfterDiscount,
-  } = req.body;
-
-  await objDiscount.update({
-    TeacherId     : TeacherId,
-    titleAR       : titleAR,
-    titleEN       : titleEN,
-    descriptionAR : descriptionAR,
-    descriptionEN : descriptionEN,
-    discountType  : discountType,
-    conditionsAR  : conditionsAR,
-    conditionsEN  : conditionsEN,
-    startDate     : startDate,
-    endDate       : endDate,
-    percentage    : percentage,
-    amountBeforeDiscount    : amountBeforeDiscount,
-    amountAfterDiscount     : amountAfterDiscount,
-  });
-
-
-  const objUpdateDiscount = await Discounts.findOne({
-    where: { id: objDiscount.id },
-  });
-
-  res.send({
-    status: 201,
-    data  : objUpdateDiscount,
-    msg: {
-      arabic: "تم تعديل بيانات الخصومه الخاصه بنجاح",
-      english: "successful update of Discount",
-    },
-  });
 };
 
 const getRefundTeacherById = async (req, res) =>{
@@ -2898,8 +2853,67 @@ const getRefundTeacherById = async (req, res) =>{
   });
 }
 
+const getSessionsByTeacher = async (req, res) => {
+  try {
+    const { teacherId } = req.params;
+
+    const sessions = await Session.findAll({
+      where: { TeacherId: teacherId ,isPaid: true},
+      attributes: ["id", "title", "date", "period", "type","isPaid","price","currency"],
+      include: [
+        {
+          model: Student,
+          attributes: ["id", "phoneNumber", "name","email"], 
+        },
+        {
+          model: Teacher,
+          attributes: ["id", "firstName", "lastName","email","phone"], 
+          include:[{
+            model: TeacherSubject,
+            include: [{ 
+              model: Subject,
+              include:[{
+                model: SubjectCategory 
+              }]
+            }]
+          }]
+        },
+      ],
+    });
+    if (!sessions.length) {
+      return res.status(404).json({
+        status: 404,
+        msg: {
+          arabic: "لم يتم العثور على جلسات لهذا المعلم",
+          english: "No sessions found for this teacher",
+        },
+      });
+    }
+
+    res.status(200).json({
+      status: 200,
+      data: sessions,
+      msg: {
+        arabic: "تم البحث بنجاح",
+        english: "Successful search",
+      },
+    });
+
+  } catch (error) {
+    console.error("Error fetching sessions:", error);
+    res.status(500).json({
+      status: 500,
+      msg: {
+        arabic: "حدث خطأ أثناء جلب البيانات",
+        english: "An error occurred while fetching the data",
+      },
+    });
+  }
+};
+
 module.exports = {
   createExchangeRequestsTeacher,
+  getSessionsByTeacher,
   signUp,               verifyCode,           signPassword,       signAbout,
   signAdditionalInfo,   settingNotification,  getSingleTeacher,   uploadImage,
   addSubjects,          addDescription,       signResume,         
