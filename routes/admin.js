@@ -82,6 +82,7 @@ const {
   deleteAdsDepartment,        updateAdsDepartment,      updateAdsStatus,
   updateCareerStatus,         getAllDiscountsAgree,     sendWhatsapp,
   sendWhatsappWaitingSendMessage,     getWhatsData,
+  changeCounts,
 } = require("../controllers/admin");
 const checkUserAuth = require("../middlewares/checkUserAuth");
 const logout = require("../middlewares/logout");
@@ -460,4 +461,7 @@ adminRouter.put("/adsdepartment/:adsDepartmentId",       verifyToken,    checkUs
 adminRouter.put("/adsStatus/:AdsId",                verifyToken, checkUserAuth("admin"), errorCatcher(updateAdsStatus));
 adminRouter.put("/updateCareerStatus/:CareerId",    verifyToken, checkUserAuth("admin"), errorCatcher(updateCareerStatus));
 adminRouter.get("/getwhatsurl",                     verifyToken, checkUserAuth("admin"),  getWhatsData);
+
+adminRouter.post("/statistics/counts", verifyToken, checkUserAuth("admin"), errorCatcher(changeCounts));
+
 module.exports = adminRouter;

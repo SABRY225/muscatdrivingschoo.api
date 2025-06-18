@@ -17,6 +17,9 @@ const login           = require("../middlewares/login");
 const logout          = require("../middlewares/logout");
 const errorCatcher    = require("../middlewares/errorCatcher");
 const { getSingleTeacher } = require("../controllers/student");
+const messagerouter = require("./messages");
+const notificationRouter = require("./notification");
+const { getCounts } = require("../controllers/admin");
 const paymentRouter   = require("./payment");
 const {forgetPassword,verifyCodeForgottenPassword,editForgottenPassword,} = require("../middlewares/forgetPassword");
 const currencyRouter = require("./currency");
@@ -38,5 +41,8 @@ router.post("/forgetPassword/code", errorCatcher(verifyCodeForgottenPassword));
 router.post("/forgetPassword/edit", errorCatcher(editForgottenPassword));
 router.use("/currency", currencyRouter);
 router.use("/invite", inviteRouter);
+router.use("/notification", notificationRouter);
+router.use("/message", messagerouter);
+router.get("/dashboard/counts", getCounts);
 
 module.exports = router;

@@ -40,6 +40,7 @@ const fetch = (...args) =>
 import("node-fetch").then(({ default: fetch }) => fetch(...args));
 
 const dotenv = require("dotenv");
+const Statistics = require("../models/Statistics");
 dotenv.config();
 const signUp = async (req, res) => {
   const { name, email, password } = req.body;
@@ -5686,7 +5687,77 @@ const updateCareerStatus = async (req, res) => {
     },
   });
 };
+
+const getCounts = async (req, res) => {
+  try {
+    const data = await Statistics.findByPk(1);
+    
+    if (!data) {
+      return res.status(404).json({ error: "Data not found" });
+    }
+
+    const countData = {
+      teachers: data.teachers,
+      students: data.students,
+      lessons: data.lessons,
+      lectures: data.lectures
+    };
+
+    res.send({
+      status: 200,
+      data: countData,
+      message: {
+        ar: "عملية ناجحة",
+        en: "Process successfully"
+      }
+    });
+  } catch (error) {
+    console.error("Error fetching counts:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+};
+const changeCounts = async (req, res) => {
+  try {
+    const { teachers, students, lessons, lectures } = req.body;
+    const data = await Statistics.findByPk(1);
+
+    if (!data) {
+      return res.status(404).json({ error: "Data not found" });
+    }
+
+    // تحديث القيم
+    data.teachers = teachers;
+    data.students = students;
+    data.lessons = lessons;
+    data.lectures = lectures;
+
+    // حفظ التحديثات في قاعدة البيانات
+    await data.save();
+
+    const countData = {
+      teachers: data.teachers,
+      students: data.students,
+      lessons: data.lessons,
+      lectures: data.lectures
+    };
+
+    res.send({
+      status: 200,
+      data: countData,
+      message: {
+        ar: "عملية ناجحة",
+        en: "Process successfully"
+      }
+    });
+  } catch (error) {
+    console.error("Error updating counts:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+};
+
 module.exports = {
+  getCounts,
+  changeCounts,
   signUp,
   login,
   createStudent,          createTeacher,        createSubjectCategory,
