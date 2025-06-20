@@ -16,6 +16,7 @@ const {
   Package,                    SubjectCategory,
   Tests,                      TeacherRefund,
   ExchangeRequestsTeacher,
+  Class,
 } = require("../models");
 const { validateTeacher, loginValidation } = require("../validation");
 const { serverErrs } = require("../middlewares/customError");
@@ -1546,16 +1547,41 @@ const getLectureByTeacherId = async (req, res) => {
       TeacherId: teacherId,
     }
   });
-
+  const lecturesData = await Promise.all(
+    arrLectures.map(async (lecture) => {
+      const subject = await Subject.findOne({
+        where: {
+          id: lecture.subject,
+        },
+      });
+      const classDate = await Class.findOne({
+        where: {
+          id: lecture.class,
+        },
+      });
+      const curriculums = await Curriculum.findOne({
+        where: {
+          id: lecture.curriculums,
+        },
+      });
+      return {
+        ...lecture.dataValues,
+        subject: subject ? subject.dataValues : null,
+        class: classDate ? classDate.dataValues : null,
+        curriculums: curriculums ? curriculums.dataValues : null
+      };
+    })
+  );
   res.send({
     status: 201,
-    data: arrLectures,
+    data: lecturesData,
     msg: {
       arabic: "تم ارجاع جميع المحاضرات المدرب بنجاح",
       english: "successful get all lectures teacher",
     },
   });
 };
+
 
 const getSingleLecture = async (req, res) => {
   const { lectureId } = req.params;
@@ -1575,11 +1601,19 @@ const getSingleLecture = async (req, res) => {
 };
 
 const createLecture = async (req, res) => {
-  const { TeacherId ,titleAR, titleEN, descriptionAr, descriptionEn } = req.body;
-  const image = req.file.filename;
+  const data = req.body;
+  if (req.files && req.files.length > 0) {
+    req.files.forEach(file => {
+      if (file.fieldname === "docs") {
+        data.docs = file.filename; // أو URL حسب طريقة التخزين
+      } else if (file.fieldname === "image") {
+        data.image = file.filename;
+      }
+    });
+  }
   const objTeacher = await Teacher.findOne({
     where: {
-      id : TeacherId,
+      id: data.TeacherId,
     },
   });
 
@@ -1588,17 +1622,9 @@ const createLecture = async (req, res) => {
       arabic: "المدرب غير مسجل سابقا",
       english: "Teacher is not found",
     });
-  
-  const newLecture = await TeacherLecture.create({
-    TeacherId     : TeacherId,
-    titleAR       : titleAR,
-    titleEN       : titleEN,
-    descriptionAr : descriptionAr,
-    descriptionEn : descriptionEn,
-    image         : image,
-  });
 
-  await newLecture.save();
+  const newLecture = await TeacherLecture.create(data);
+
   res.send({
     status: 201,
     data: newLecture,
@@ -1608,6 +1634,7 @@ const createLecture = async (req, res) => {
     },
   });
 };
+
 
 const deleteLecture = async (req, res) => {
   const { lectureId } = req.params;
@@ -1632,7 +1659,7 @@ const deleteLecture = async (req, res) => {
 
 const updateLecture = async (req, res) => {
   const { lectureId } = req.params;
-
+  const data = req.body;
   const objLecture = await TeacherLecture.findOne({
     where: { id: lectureId },
   });
@@ -1644,48 +1671,20 @@ const updateLecture = async (req, res) => {
     });
   };
 
-  const clearImage = (filePath) => {
-    filePath = path.join(__dirname, "..", `images/${filePath}`);
-    fs.unlink(filePath, (err) => {
-      if (err)
-        throw serverErrs.BAD_REQUEST({
-          arabic: "الصورة غير موجودة",
-          english: "Image not found",
-        });
+  if (req.files && req.files.length > 0) {
+    req.files.forEach(file => {
+      if (file.fieldname === "docs") {
+        data.docs = file.filename; // أو URL حسب طريقة التخزين
+      } else if (file.fieldname === "image") {
+        data.image = file.filename;
+      }
     });
   }
 
-  if (req.file && objLecture.image) {
-    clearImage(objLecture.image);
-  }
-  if (req.file) {
-    await objLecture.update({ image: req.file.filename });
-  }
-
-  const {
-    TeacherId     : TeacherId,
-    titleAR       : titleAR,
-    titleEN       : titleEN,
-    descriptionAr : descriptionAr,
-    descriptionEn : descriptionEn,
-  } = req.body;
-
-  await objLecture.update({
-    TeacherId     : TeacherId,
-    titleAR       : titleAR,
-    titleEN       : titleEN,
-    descriptionAr : descriptionAr,
-    descriptionEn : descriptionEn,
-  });
-
-
-  const objLectureTwo = await TeacherLecture.findOne({
-    where: { id: objLecture.id },
-  });
-
+  await objLecture.update(data);
   res.send({
     status: 201,
-    data  : objLectureTwo,
+    data: objLecture,
     msg: {
       arabic: "تم تعديل بيانات المحاضره بنجاح",
       english: "successful update of Lecture",
@@ -1912,106 +1911,26 @@ const getSinglePackage = async (req, res) => {
 };
 
 const createPackage = async (req, res) => {
+ const data = req.body;
 
-  const { TeacherId ,titleAR, titleEN, descriptionAr, descriptionEn ,
-    status        , duration,  price,     numTotalLesson,
-    numWeekLesson , gender,    startDate, endDate,
-    currency,
-    TrainingCategoryTypeId,    LimeTypeId    , LevelId,    SubjectId  
-   } = req.body;
-  const image = req.file.filename;
-  const objTeacher = await Teacher.findOne({
-    where: {
-      id : TeacherId,
-    },
-  });
-
-  if (!objTeacher)
-    throw serverErrs.BAD_REQUEST({
-      arabic: "المدرب غير مسجل سابقا",
-      english: "Teacher is not found",
+  if (req.files && req.files.length > 0) {
+    req.files.forEach(file => {
+      if (file.fieldname === "docs") {
+        data.docs = file.filename; // أو URL حسب طريقة التخزين
+      } else if (file.fieldname === "image") {
+        data.image = file.filename;
+      }
     });
+  }
 
-  const objTraining = await TrainingCategoryType.findOne({
-    where: {
-      id : TrainingCategoryTypeId,
-    },
-  });
-  
-  if (!objTraining)
-    throw serverErrs.BAD_REQUEST({
-      arabic : "فئه التدريب غير مسجل سابقا",
-      english: "Training Category Type is not found",
-    });
 
-  const objLevel = await Level.findOne({
-    where: {
-      id : LevelId,
-    },
-  });
-  
-  if (!objLevel)
-    throw serverErrs.BAD_REQUEST({
-      arabic : "مرحله التدريب غير مسجل سابقا",
-      english: "Level is not found",
-    });
-
-  console.log("Done Level");
-  const objSubject = await SubjectCategory.findOne({
-      where: {
-        id : SubjectId,
-      },
-  });
-  
-  if (!objSubject)
-    throw serverErrs.BAD_REQUEST({
-      arabic : "نوع التدريب غير مسجل سابقا",
-      english: "Subject is not found",
-    });
-
-  console.log("Done Subject");
-  console.log(LimeTypeId);
-  const objLimeType = await LimeType.findOne({
-    where: {
-      id : LimeTypeId,
-    },
-  });
-  
-  if (!objLimeType)
-    throw serverErrs.BAD_REQUEST({
-      arabic: "نوع الجير غير مسجل سابقا",
-      english: "Lime Type is not found",
-    });
-  
-  const newPackage = await Package.create({
-    TeacherId     : TeacherId,
-    titleAR       : titleAR,
-    titleEN       : titleEN,
-    descriptionAr : descriptionAr,
-    descriptionEn : descriptionEn,
-    image         : image,
-    status        : "1",
-    duration      : duration,
-    price         : price,
-    numTotalLesson    : numTotalLesson,
-    numWeekLesson     : numWeekLesson,
-    gender            : gender,
-    startDate         : startDate,
-    endDate           : endDate,
-    TrainingCategoryTypeId    : TrainingCategoryTypeId,
-    LimeTypeId        : LimeTypeId,
-    LevelId           : LevelId,
-    SubjectCategoryId         : SubjectId,
-    currency          : currency
-  });
-
-  await newPackage.save();
+  const newPackage = await Package.create(data);
   res.send({
     status: 201,
     data: newPackage,
     msg: {
-      arabic  : "تم إنشاء باقه جديده بنجاح",
-      english : "successful create new Package",
+      arabic: "تم إنشاء باقه جديده بنجاح",
+      english: "successful create new Package",
     },
   });
 };
@@ -2038,78 +1957,51 @@ const deletePackage = async (req, res) => {
 };
 
 const updatePackage = async (req, res) => {
-  console.log("Update Package");
-
-  const { packageId } = req.params;
-  const objPackage = await Package.findOne({
+  try {
+    const { packageId } = req.params;
+    const data = req.body;
+    const package = await Package.findOne({
     where: { id: packageId },
-  });
+  });;
+    if (!package) {
+      return res.status(404).send({
+        status: 404,
+        msg: {
+          ar: "الحزمة غير موجودة",
+          en: "Package not found"
+        }
+      });
+    }
+    if (req.files && req.files.length > 0) {
+      req.files.forEach(file => {
+        if (file.fieldname === "docs") {
+          data.docs = file.filename; // أو URL حسب طريقة التخزين
+        } else if (file.fieldname === "image") {
+          data.image = file.filename;
+        }
+      });
+    }
 
-  if (!objPackage) {
-    throw serverErrs.BAD_REQUEST({
-      arabic: "الباقة غير موجود",
-      english: "Package not found",
+    await package.update(data);
+    // إرجاع استجابة بالبيانات المحدثة
+    res.send({
+      status: 200,
+      data: package,
+      msg: {
+        ar: "تم التحديث بنجاح",
+        en: "Successfully updated"
+      }
     });
-  };
-
-  const clearImage = (filePath) => {
-    filePath = path.join(__dirname, "..", `images/${filePath}`);
-    fs.unlink(filePath, (err) => {
-      if (err)
-        throw serverErrs.BAD_REQUEST({
-          arabic: "الصورة غير موجودة",
-          english: "Image not found",
-        });
+  } catch (err) {
+    console.error("Error updating package:", err);
+    res.status(500).send({
+      status: 500,
+      msg: {
+        ar: "خطأ في الخادم",
+        en: "Server error"
+      }
     });
   }
-
-  if (req.file && objPackage.image) {
-    clearImage(objPackage.image);
-  }
-  if (req.file) {
-    await objPackage.update({ image: req.file.filename });
-  }
-
-  console.log(req.body);
-  const { TeacherId ,titleAR, titleEN, descriptionAr, descriptionEn ,
-    status        , duration,  price,     numTotalLesson,
-    numWeekLesson , gender,    startDate, endDate,
-    TrainingCategoryTypeId,
-    LimeTypeId    , LevelId,    SubjectCategoryId , currency } = req.body;
-
-  await objPackage.update({
-    TeacherId     : TeacherId,
-    titleAR       : titleAR,
-    titleEN       : titleEN,
-    descriptionAr : descriptionAr,
-    descriptionEn : descriptionEn,
-    status        : status,
-    duration      : duration,
-    price         : price,
-    numTotalLesson    : numTotalLesson,
-    numWeekLesson     : numWeekLesson,
-    gender            : gender,
-    startDate         : startDate,
-    endDate           : endDate,
-    TrainingCategoryTypeId    : TrainingCategoryTypeId,
-    LimeTypeId        : LimeTypeId,
-    LevelId           : LevelId,
-    SubjectCategoryId : SubjectCategoryId,
-    currency          : currency
-  });
-
-  const objUpdatePackage = await Package.findOne({
-    where: { id: objPackage.id },
-  });
-
-  res.send({
-    status: 201,
-    data  : objUpdatePackage,
-    msg: {
-      arabic: "تم تعديل بيانات المحاضره بنجاح",
-      english: "successful update of Lecture",
-    },
-  });
 };
 
 const getPackageAccept = async (req, res) => {
@@ -2566,9 +2458,7 @@ const getTestsByTeacherId = async (req, res) => {
   });
 };
 
-const getSingleTest = async (req, res) => {
-  console.log(req.params);
-  
+const getSingleTest = async (req, res) => {  
   const { testId } = req.params;
   const objTest = await Tests.findOne({
     where: { id : testId },
@@ -2577,11 +2467,22 @@ const getSingleTest = async (req, res) => {
        { model: Level, },
      ]
   });
-console.log(objTest);
+const [subject, classData,curriculums] = await Promise.all([
+      Subject.findOne({ where: { id: objTest.subject } }),
+      Class.findOne({ where: { id: objTest.class } }),
+      Curriculum.findOne({ where: { id: objTest.curriculums } }),
+  ]);
+
+  const examData = {
+      ...objTest.dataValues,
+      subject: subject ? subject.dataValues : null,
+      class: classData ? classData.dataValues : null,
+      curriculums: curriculums ? curriculums.dataValues : null,
+  };
 
   res.send({
     status: 201,
-    data: objTest,
+    data: examData,
     msg: {
       arabic: "تم صف الاختبار المدرب بنجاح",
       english: "successful get single test of teacher",
@@ -2590,81 +2491,85 @@ console.log(objTest);
 };
 
 const createTest = async (req, res) => {
-  const { TeacherId , price, currency , LevelId  } = req.body;
-  const objTeacher = await Teacher.findOne({
-    where: {
-      id : TeacherId,
-    },
-  });
+  try {
+    const data = req.body;
 
-  if (!objTeacher)
-    throw serverErrs.BAD_REQUEST({
-      arabic: "المدرب غير مسجل سابقا",
-      english: "Teacher is not found",
+    // التأكد من أن هناك ملفات وتحميلها
+    if (req.files && req.files.length > 0) {
+      req.files.forEach(file => {
+          if (file.fieldname === "docs") {
+              data.docs = file.filename; // أو URL حسب طريقة التخزين
+          } else if (file.fieldname === "image") {
+              data.image = file.filename;
+          }
+      });
+  }
+
+
+    const table = await Tests.create(data);
+
+    res.send({
+      status: 200,
+      msg: {
+        arabic: "تم انشاء اختبار جديد",
+        english: "A new exam has been created."
+      }
     });
-  
-  const newTest = await Tests.create({
-    TeacherId         : TeacherId,
-    price             : price,
-    currency          : currency,
-    LevelId           : LevelId,
-    status            : "1"
-  });
-
-  await newTest.save();
-  res.send({
-    status: 201,
-    data: newTest,
-    msg: {
-      arabic: "تم إنشاء الاختبار بنجاح",
-      english: "successful create new Test",
-    },
-  });
+  } catch (error) {
+    console.error("Error creating exam:", error);
+    res.status(400).send({
+      status: 400,
+      error: error.message,
+      msg: {
+        arabic: "حدث خطأ ما",
+        english: "Something went wrong"
+      }
+    });
+  }
 };
 
 const updateTest = async (req, res) => {
-
-  const { testId } = req.params;
-  const objTest = await Tests.findOne({
-    where: { id: testId },
-  });
-
-  if (!objTest) {
-    throw serverErrs.BAD_REQUEST({
-      arabic: "الاختبار غير موجود",
-      english: "Test not found",
-    });
-  };
-
-  const {
-    TeacherId         : TeacherId,
-    price             : price,
-    currency          : currency,
-    LevelId           : LevelId,
-  } = req.body;
-  console.log(req.body);
+    try {
+    const { testId } = req.params;
+    const data = req.body;
+    const exam = await Tests.findOne({ where: { id: testId }});
+    if (!exam) {
+      return res.status(404).send({
+        status: 404,
+        msg: {
+          arabic: "الأختبار غير موجود",
+          english: "exam not found"
+        }
+      });
+    }
+    if (req.files && req.files.length > 0) {
+      req.files.forEach(file => {
+          if (file.fieldname === "docs") {
+              data.docs = file.filename; // أو URL حسب طريقة التخزين
+          } else if (file.fieldname === "image") {
+              data.image = file.filename;
+          }
+      });
+  }
   
-
-  await objTest.update({
-    TeacherId         : TeacherId,
-    price             : price,
-    currency          : currency,
-    LevelId           : LevelId,
-  });
-
-
-  const objTestTwo = await Tests.findOne({
-    where: { id: objTest.id },
-  });
-
-  res.send({
-    status: 201,
-    data  : objTestTwo,
-    msg: {
-      arabic: "تم تعديل بيانات الاختبار بنجاح",
-      english: "successful update of Test",
-    },
-  });
+    await exam.update(data);
+    res.send({
+      status: 200,
+      msg: {
+        arabic: "تم تحديث الأختبار بنجاح",
+        english: "Exam updated successfully"
+      },
+    });
+  } catch (error) {
+    res.status(500).send({
+      status: 500,
+      error:error.message,
+      msg: {
+        arabic: "حدث خطأ في الخادم",
+        english: "Server error"
+      }
+    });
+  }
 };
 
 const deleteTest= async (req, res) => {
@@ -2911,8 +2816,40 @@ const getSessionsByTeacher = async (req, res) => {
   }
 };
 
+const availbleTeacher =async (req, res) => {
+  try {
+    const teacherData = await TeacherDay.findAll({
+      where:{
+        TeacherId:req.params.id
+      }
+    });
+
+    if (!teacherData) return res.status(404).json({ message: 'Teacher not found' });
+  
+
+    const data = await Promise.all(
+      teacherData.map(async (teacher) => {
+        const day = await Days.findOne({
+          where: {
+            id: teacher.DayId, 
+          },
+        });
+        return {
+          ...teacher.dataValues, 
+          day: day ? day.dataValues : null
+        };
+      })
+    );
+    res.status(200).json(data);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Server error' });
+  }
+}
+
 module.exports = {
   createExchangeRequestsTeacher,
+  availbleTeacher,
   getSessionsByTeacher,
   signUp,               verifyCode,           signPassword,       signAbout,
   signAdditionalInfo,   settingNotification,  getSingleTeacher,   uploadImage,

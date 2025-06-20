@@ -82,7 +82,12 @@ const {
   deleteAdsDepartment,        updateAdsDepartment,      updateAdsStatus,
   updateCareerStatus,         getAllDiscountsAgree,     sendWhatsapp,
   sendWhatsappWaitingSendMessage,     getWhatsData,
-  changeCounts,
+  changeCounts,getTeachersWithoutPassword,getParentsWithoutPassword,getStudentsWithoutPassword,
+  getYearlyRevenue,
+  getAllStudent,
+  getAllTeacher,
+  getAllParent,
+  sendBulkMessages
 } = require("../controllers/admin");
 const checkUserAuth = require("../middlewares/checkUserAuth");
 const logout = require("../middlewares/logout");
@@ -463,5 +468,16 @@ adminRouter.put("/updateCareerStatus/:CareerId",    verifyToken, checkUserAuth("
 adminRouter.get("/getwhatsurl",                     verifyToken, checkUserAuth("admin"),  getWhatsData);
 
 adminRouter.post("/statistics/counts", verifyToken, checkUserAuth("admin"), errorCatcher(changeCounts));
+
+adminRouter.get("/houtPassword/teachers", verifyToken, checkUserAuth("admin"), errorCatcher(getTeachersWithoutPassword));
+adminRouter.get("/houtPassword/students", verifyToken, checkUserAuth("admin"), errorCatcher(getStudentsWithoutPassword));
+adminRouter.get("/houtPassword/parents", verifyToken, checkUserAuth("admin"), errorCatcher(getParentsWithoutPassword));
+
+adminRouter.get("/admin-wallet/yearly-revenue", getYearlyRevenue);
+
+adminRouter.get("/getall/teacher", getAllTeacher);
+adminRouter.get("/getall/student", getAllStudent);
+adminRouter.get("/getall/parent", getAllParent);
+adminRouter.post("/send-bulk-messages", verifyToken, checkUserAuth("admin"), errorCatcher(sendBulkMessages))
 
 module.exports = adminRouter;

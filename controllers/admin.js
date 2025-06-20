@@ -41,6 +41,8 @@ import("node-fetch").then(({ default: fetch }) => fetch(...args));
 
 const dotenv = require("dotenv");
 const Statistics = require("../models/Statistics");
+const AdminWallet = require("../models/AdminWallet");
+const { sendEmails } = require("../utils/sendEmails");
 dotenv.config();
 const signUp = async (req, res) => {
   const { name, email, password } = req.body;
@@ -5755,7 +5757,227 @@ const changeCounts = async (req, res) => {
   }
 };
 
+const getTeachersWithoutPassword = async (req, res) => {
+  try {
+    const teachers = await Teacher.findAll({
+      where: {
+        isVerified: false
+      }
+    });
+    res.status(200).json({
+      status: 200,
+      data: teachers,
+      message: {
+        ar: "عملية ناجحة",
+        en: "process successfully"
+      }
+    });
+  } catch (error) {
+    console.error("Error fetching teachers:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  };
+}
+
+const getStudentsWithoutPassword = async (req, res) => {
+  try {
+    const students = await Student.findAll({
+      where: {
+        [Op.or]: [
+          { password: null },
+          { password: "" },
+          { password: " " } // to handle case with a single space as password
+        ]
+      }
+    });
+    res.status(200).json({
+      status: 200,
+      data: students,
+      message: {
+        ar: "عملية ناجحة",
+        en: "process successfully"
+      }
+    });
+  } catch (error) {
+    console.error("Error fetching teachers:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  };
+}
+
+const getParentsWithoutPassword = async (req, res) => {
+  try {
+    const Parents = await Parent.findAll({
+      where: {
+        [Op.or]: [
+          { password: null },
+          { password: "" },
+          { password: " " } // to handle case with a single space as password
+        ]
+      }
+    });
+    res.status(200).json({
+      status: 200,
+      data: Parents,
+      message: {
+        ar: "عملية ناجحة",
+        en: "process successfully"
+      }
+    });
+  } catch (error) {
+    console.error("Error fetching teachers:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  };
+}
+const getYearlyRevenue = async (req, res) => {
+  try {
+    const currentYear = new Date().getFullYear();
+    console.log(currentYear);
+    
+
+    const revenues = await AdminWallet.findAll({
+      attributes: [
+        [fn('MONTH', col('date')), 'month'],
+        [fn('SUM', col('amount')), 'totalAmount']
+      ],
+      where: {
+        date: {
+          [Op.gte]: new Date(`${currentYear}-01-01`),
+          [Op.lte]: new Date(`${currentYear}-12-31`)
+        }
+      },
+      group: [fn('MONTH', col('date'))],
+      order: [[fn('MONTH', col('date')), 'ASC']]
+    });
+
+    res.status(200).json({ success: true, data: revenues });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: "Internal Server Error" });
+  }
+};
+
+const getAllParent = async (req, res) => {
+  try {
+    const parents = await Parent.findAll()
+    res.status(200).json({
+      success: true,
+      data: parents,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      success: false,
+      message: {
+        ar: 'لقد حدثت مشكلة في السيرفر',
+        en: 'There was a problem with the server',
+      },
+    });
+  }
+};
+const getAllTeacher = async (req, res) => {
+  try {
+    const teachers = await Teacher.findAll({
+      where: {
+        isVerified:true
+      }
+    })
+    res.status(200).json({
+      success: true,
+      data: teachers,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      success: false,
+      message: {
+        ar: 'لقد حدثت مشكلة في السيرفر',
+        en: 'There was a problem with the server',
+      },
+    });
+  }
+};
+const getAllStudent = async (req, res) => {
+  try {
+    const students = await Student.findAll()
+    res.status(200).json({
+      success: true,
+      data: students,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      success: false,
+      message: {
+        ar: 'لقد حدثت مشكلة في السيرفر',
+        en: 'There was a problem with the server',
+      },
+    });
+  }
+};
+
+const sendBulkMessages = async (req, res) => {
+  try {
+    const { lang, message, selectedCategories, selectedMethods, selectedPeople } = req.body;
+
+    if (!message) {
+      return res.status(400).json({
+        message: {
+          ar: "اختر الطريقة و الرسالة مطلوب",
+          en: "Method and message are required"
+        }
+      });
+    }
+
+    // تحويل selectedMethods إلى مصفوفة إذا لم تكن مصفوفة
+    const methods = Array.isArray(selectedMethods) ? selectedMethods : [selectedMethods];
+
+    let phones = [];
+    let emails = [];
+
+
+    phones = [...new Set(selectedPeople.map(user => user.phone || user.phoneNumber))];
+    emails = [...new Set(selectedPeople.map(user => user.email))];
+
+
+    const sendMessages = async (phones, emails, message, lang, method) => {
+      if (method === "whatsapp") {
+        // await sendMessagesWhatsapp(phones, message);
+      }
+      else {
+        await sendEmails(emails, message, lang);
+      }
+    };
+
+    for (const method of methods) {
+      await sendMessages(phones, emails, message, lang, method);
+    }
+
+    res.json({
+      success: true,
+      message: {
+        ar: "تم إرسال الرسائل بنجاح",
+        en: "Messages sent successfully"
+      }
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      success: false,
+      message: {
+        ar: "لقد حدثت مشكلة في السيرفر",
+        en: "There was a problem with the server"
+      }
+    });
+  }
+};
 module.exports = {
+  sendBulkMessages,
+  getAllParent,
+  getAllTeacher,
+  getAllStudent,
+  getYearlyRevenue,
+  getTeachersWithoutPassword,
+  getStudentsWithoutPassword,
+  getParentsWithoutPassword,
   getCounts,
   changeCounts,
   signUp,

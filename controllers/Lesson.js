@@ -1,7 +1,7 @@
 const { Student, Teacher } = require("../models");
 const Lessons = require("../models/Lesson");
 const Notification = require("../models/Notification");
-const sendEmailRequest = require("../utils/sendEmailRequestLession");
+const {sendEmailRequest} = require("../utils/sendEmailRequestLession");
 const nodemailer = require('nodemailer');
 const dotenv = require("dotenv");
 dotenv.config();
@@ -99,47 +99,55 @@ const createRequest = async (req, res, next) => {
     }
 };
 
-// دوال مساعدة لقوالب الإيميل
+
 const generateArabicEmail = (studentName) => `
   <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px; direction: rtl;">
     <div style="text-align: center; padding: 10px 0; background-color: #f4f4f4; border-bottom: 1px solid #ddd;">
-        <h1>مرحباً بك في منصة معلمي!</h1>
+        <h1>مرحباً بك في منصة مسقط لتعليم قيادة السيارات!</h1>
     </div>
     <div style="padding: 20px;">
         <p>
-          تم ارسال طلب حجز درس جديد من طالب  ${studentName}. برجاء مراجعة الطلب.
+          تم إرسال طلب حجز درس جديد من الطالب ${studentName}. برجاء مراجعة الطلب.
         </p>
-        <p>إذا كان لديك أي أسئلة أو تحتاج إلى مساعدة إضافية، لا تتردد في التواصل مع فريق الدعم لدينا على <a href="mailto:info@moalime.com">info@moalime.com</a>.</p>
-        <p>شكراً لاختيارك منصة معلمي . نتطلع لخدمتك!</p>
+        <p>إذا كان لديك أي أسئلة أو تحتاج إلى مساعدة إضافية، لا تتردد في التواصل مع فريق الدعم لدينا على 
+        <a href="mailto:info@muscatdrivingschool.com">info@muscatdrivingschool.com</a>.</p>
+        <p>شكراً لاختيارك منصة مسقط لتعليم قيادة السيارات. نتطلع لخدمتك!</p>
     </div>
     <div style="margin-top: 20px; padding: 10px; text-align: center; background-color: #f4f4f4; border-top: 1px solid #ddd;">
         <p>أطيب التحيات،</p>
-        منصة معلمي <br>
-        <a href="https://moalime.com/">moalime.com</a><br></p>
-        <p>منصة معلمي  © . جميع الحقوق محفوظة.</p>
-        <p>بإرسال هذا البريد الإلكتروني، فإنك تقر وتوافق على <a href="https://moalime.com/TermsAndConditions">شروط الخدمة</a> و <a href="https://moalime.com/PrivacyPolicy">سياسة الخصوصية</a> الخاصة بنا.</p>
+        منصة مسقط لتعليم قيادة السيارات<br>
+        <a href="https://muscatdrivingschool.com/">muscatdrivingschool.com</a><br>
+        <p>© منصة مسقط لتعليم قيادة السيارات. جميع الحقوق محفوظة.</p>
+        <p>بإرسال هذا البريد الإلكتروني، فإنك تقر وتوافق على 
+        <a href="https://muscatdrivingschool.com/TermsAndConditions">شروط الخدمة</a> و 
+        <a href="https://muscatdrivingschool.com/PrivacyPolicy">سياسة الخصوصية</a> الخاصة بنا.</p>
     </div>
-  </div>`;
+  </div>
+`;
 
-
-  const generateEnglishEmail = (studentName) => `
+const generateEnglishEmail = (studentName) => `
   <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px;">
     <div style="text-align: center; padding: 10px 0; background-color: #f4f4f4; border-bottom: 1px solid #ddd;">
-        <h1>Welcome to the Moalime Platform</h1>
+        <h1>Welcome to Muscat Driving School Platform!</h1>
     </div>
     <div style="padding: 20px;">
-        <p> A new lesson reservation request has been sent from student ${studentName}. Please review the request.</p>
-        <p>Should you have any questions or need further assistance, feel free to reach out to our support team at <a href="mailto:info@moalime.com">info@moalime.com</a>.</p>
-        <p>Thank you for choosing Moalime Platform. We look forward to serving you!</p>
+        <p>A new lesson reservation request has been sent from student ${studentName}. Please review the request.</p>
+        <p>Should you have any questions or need further assistance, feel free to reach out to our support team at 
+        <a href="mailto:info@muscatdrivingschool.com">info@muscatdrivingschool.com</a>.</p>
+        <p>Thank you for choosing Muscat Driving School Platform. We look forward to serving you!</p>
     </div>
     <div style="margin-top: 20px; padding: 10px; text-align: center; background-color: #f4f4f4; border-top: 1px solid #ddd;">
         <p>Best regards,</p>
-        Moalime Platform<br>
-        <a href="https://moalime.com/">moalime.com</a><br>
-        <p>Moalime ©. All rights reserved.</p>
-        <p>By sending this email, you acknowledge and agree to our <a href="https://moalime.com/TermsAndConditions">Terms of Service</a> and <a href="https://moalime.com/PrivacyPolicy">Privacy Policy</a>.</p>
+        Muscat Driving School Platform<br>
+        <a href="https://muscatdrivingschool.com/">muscatdrivingschool.com</a><br>
+        <p>© Muscat Driving School Platform. All rights reserved.</p>
+        <p>By sending this email, you acknowledge and agree to our 
+        <a href="https://muscatdrivingschool.com/TermsAndConditions">Terms of Service</a> and 
+        <a href="https://muscatdrivingschool.com/PrivacyPolicy">Privacy Policy</a>.</p>
     </div>
-  </div>`;
+  </div>
+`;
+
 
 
 const getAllLessonRequest = async (req, res, next) => {
@@ -512,7 +520,7 @@ const acceptRequest = async (req, res, next) => {
         } else {
             sendEmailRequest(student.email, lang, "Your order has been successfully confirmed. Please go to the Class Reservation Request Payments section to complete the payment process.")
         }
-        res.send({
+        return res.send({
             status: 200,
             message: {
                 arabic: "تم تاكيد طلب الحجز الدرس بنجاح",
@@ -521,9 +529,9 @@ const acceptRequest = async (req, res, next) => {
         });
 
     } catch (error) {
-        res.status(400).send({
-            status: 400,
-            error: error,
+        res.status(500).send({
+            status: 500,
+            error: error.message,
             message: {
                 arabic: "حدث خطأ ما",
                 english: "Something went wrong"

@@ -12,7 +12,9 @@ const {
   TeacherLesson,          LimeType,                 ParentStudent,
   Package,                StudentPackage,           Tests,
   StudentTest,            ExchangeRequestsStudent,
-  StudentRefund,          Discounts,                StudentDiscount
+  StudentRefund,          Discounts,                StudentDiscount,
+  TeacherQuestion,
+  TeacherQuestionChoose
 } = require("../models");
 const { validateStudent, loginValidation } = require("../validation");
 const { serverErrs } = require("../middlewares/customError");
@@ -606,35 +608,35 @@ const getSingleTeacher = async (req, res) => {
   });
   }
 
-  let currencyConverter = new CC();
+  // let currencyConverter = new CC();
 
-  if (teacher.RemoteSession) {
-    const newPriceRemote = await currencyConverter
-      .from(teacher.RemoteSession.currency)
-      .to(currency)
-      .amount(+teacher.RemoteSession.priceAfterDiscount)
-      .convert();
-    teacher.RemoteSession.priceAfterDiscount = newPriceRemote;
-    teacher.RemoteSession.currency = currency;
-  }
-  if (teacher.F2FSessionStd) {
-    const newPriceF2FStudent = await currencyConverter
-      .from(teacher.F2FSessionStd.currency)
-      .to(currency)
-      .amount(+teacher.F2FSessionStd.priceAfterDiscount)
-      .convert();
-    teacher.F2FSessionStd.priceAfterDiscount = newPriceF2FStudent;
-    teacher.F2FSessionStd.currency = currency;
-  }
-  if (teacher.F2FSessionTeacher) {
-    const newPriceF2FTeacher = await currencyConverter
-      .from(teacher.F2FSessionTeacher.currency)
-      .to(currency)
-      .amount(+teacher.F2FSessionTeacher.priceAfterDiscount)
-      .convert();
-    teacher.F2FSessionTeacher.priceAfterDiscount = newPriceF2FTeacher;
-    teacher.F2FSessionTeacher.currency = currency;
-  }
+  // if (teacher.RemoteSession) {
+  //   const newPriceRemote = await currencyConverter
+  //     .from(teacher.RemoteSession.currency)
+  //     .to(currency)
+  //     .amount(+teacher.RemoteSession.priceAfterDiscount)
+  //     .convert();
+  //   teacher.RemoteSession.priceAfterDiscount = newPriceRemote;
+  //   teacher.RemoteSession.currency = currency;
+  // }
+  // if (teacher.F2FSessionStd) {
+  //   const newPriceF2FStudent = await currencyConverter
+  //     .from(teacher.F2FSessionStd.currency)
+  //     .to(currency)
+  //     .amount(+teacher.F2FSessionStd.priceAfterDiscount)
+  //     .convert();
+  //   teacher.F2FSessionStd.priceAfterDiscount = newPriceF2FStudent;
+  //   teacher.F2FSessionStd.currency = currency;
+  // }
+  // if (teacher.F2FSessionTeacher) {
+  //   const newPriceF2FTeacher = await currencyConverter
+  //     .from(teacher.F2FSessionTeacher.currency)
+  //     .to(currency)
+  //     .amount(+teacher.F2FSessionTeacher.priceAfterDiscount)
+  //     .convert();
+  //   teacher.F2FSessionTeacher.priceAfterDiscount = newPriceF2FTeacher;
+  //   teacher.F2FSessionTeacher.currency = currency;
+  // }
 
   res.send({
     status: 201,
@@ -1354,10 +1356,32 @@ const getStudentTests = async (req, res) => {
       ]
       ,
     });
+ const enrichedTest = await Promise.all(dataStudentTest.map(async (test) => {
+    const teacherTest = test.Test;
 
+    if (!teacherTest) return test; 
+
+    const curriculum = await Curriculum.findOne({ where: { id: teacherTest.curriculums } });
+    const classData = await Class.findOne({ where: { id: teacherTest.class } });
+    const subject = await Subject.findOne({ where: { id: teacherTest.subject } });
+    const level = await Level.findOne({ where: { id: teacherTest.LevelId } });
+    const teacher = await Teacher.findOne({ where: { id: teacherTest.TeacherId } });
+
+    return {
+      ...test.toJSON(),
+      Test: {
+        ...teacherTest.toJSON(),
+        curriculum,
+        classData,
+        subject,
+        level,
+        teacher
+      },
+    };
+  }));
     res.send({
       status: 201,
-      data: dataStudentTest,
+      data: enrichedTest,
       msg: {
         arabic  : "ارجاع جميع الاختبارات الموافقة عليها",
         english : "successful get all Tests",
@@ -1367,37 +1391,54 @@ const getStudentTests = async (req, res) => {
 
 const getStudentLectures = async (req, res) => {
   const { StudentId } = req.params;
-  const student = await Student.findOne({
-    where: {
-      id: StudentId,
-    },
-  });
 
-  if (!student)
+  const student = await Student.findOne({ where: { id: StudentId } });
+
+  if (!student) {
     throw serverErrs.BAD_REQUEST({
       arabic: "الطالب غير موجودة",
-      english: "student not found",
+      english: "Student not found",
     });
+  }
 
-    const dataTeacherLecture = await StudentLecture.findAll({
-      where: {
-        StudentId: StudentId,
-      },
-    
-      include: [
-        { model: TeacherLecture },
-      ]
-  
-    });
+  // جلب المحاضرات
+  const dataTeacherLecture = await StudentLecture.findAll({
+    where: {
+      StudentId: StudentId,
+      isPaid: true,
+    },
+    include: [{ model: TeacherLecture }],
+  });
 
-    res.send({
-      status: 201,
-      data: dataTeacherLecture,
-      msg: {
-        arabic  : "ارجاع جميع المحاضرات الموافقة عليها",
-        english : "successful get all Lectures",
+  // جلب بيانات المنهج والفصل والمادة لكل محاضرة
+  const enrichedLectures = await Promise.all(dataTeacherLecture.map(async (lecture) => {
+    const teacherLecture = lecture.TeacherLecture;
+
+    if (!teacherLecture) return lecture; // في حال كانت المحاضرة null
+
+    const curriculum = await Curriculum.findOne({ where: { id: teacherLecture.curriculums } });
+    const classData = await Class.findOne({ where: { id: teacherLecture.class } });
+    const subject = await Subject.findOne({ where: { id: teacherLecture.subject } });
+
+    return {
+      ...lecture.toJSON(),
+      TeacherLecture: {
+        ...teacherLecture.toJSON(),
+        curriculum,
+        classData,
+        subject,
       },
-    });
+    };
+  }));
+
+  return res.status(200).json({
+    status: 200,
+    data: enrichedLectures,
+    msg: {
+      arabic: "تم استرجاع المحاضرات بنجاح مع التفاصيل",
+      english: "Lectures fetched successfully with full details",
+    },
+  });
 };
 
 const getRefundStudentById = async (req, res) =>{
@@ -1430,36 +1471,61 @@ const getRefundStudentById = async (req, res) =>{
 
 const getStudentPackages = async (req, res) => {
   const { StudentId } = req.params;
-  const student = await Student.findOne({
+
+  const student = await Student.findOne({ where: { id: StudentId } });
+
+  if (!student) {
+    return res.status(400).json({
+      message: {
+        arabic: "الطالب غير موجود",
+        english: "Student not found",
+      },
+    });
+  }
+
+  // جميع الباقات التي دفعها الطالب
+  const studentPackages = await StudentPackage.findAll({
     where: {
-      id: StudentId,
+      StudentId,
+      isPaid: true,
     },
   });
 
-  if (!student)
-    throw serverErrs.BAD_REQUEST({
-      arabic: "الطالب غير موجودة",
-      english: "student not found",
-    });
+  // الحصول على تفاصيل كل باقة مرتبطة
+  const fullPackages = await Promise.all(
+    studentPackages.map(async (pkg) => {
+      const packageData = await Package.findOne({
+        where: { id: pkg.PackageId }, // نفترض أن StudentPackage يحتوي على PackageId
+      });
 
-    const dataTeacherPackage = await StudentPackage.findAll({
-      where: {
-        StudentId: StudentId,
-      },
-      include: [
-        { model: Package },
-      ]
-    });
+      if (!packageData) return null;
 
-    res.send({
-      status: 201,
-      data: dataTeacherPackage,
-      msg: {
-        arabic  : "ارجاع جميع الباقات الموافقة عليها",
-        english : "successful get all Packages",
-      },
-    });
+      const level = await Level.findOne({ where: { id: packageData.LevelId } });
+      const classId = await Class.findOne({ where: { id: packageData.class } });
+      const curriculum = await Curriculum.findOne({ where: { id: packageData.curriculums } });
+
+      return {
+        ...packageData.dataValues,
+        level: level ? level.dataValues : null,
+        classId: classId ? classId.dataValues : null,
+        curriculums: curriculum ? curriculum.dataValues : null,
+      };
+    })
+  );
+
+  // إزالة الباقات التي لم يتم العثور عليها (null)
+  const filteredPackages = fullPackages.filter(pkg => pkg !== null);
+
+  return res.status(200).json({
+    status: 200,
+    data: filteredPackages,
+    msg: {
+      arabic: "تم استرجاع جميع الباقات المدفوعة",
+      english: "Successfully retrieved all paid packages",
+    },
+  });
 };
+
 
 const getStudentDiscounts = async (req, res) => {
   const { StudentId } = req.params;
@@ -1478,15 +1544,36 @@ const getStudentDiscounts = async (req, res) => {
     const dataTeacherDiscount = await StudentDiscount.findAll({
       where: {
         StudentId: StudentId,
+        isPaid:true
       },
       include: [
         { model: Discounts },
       ]
     });
+const enrichedDiscount = await Promise.all(dataTeacherDiscount.map(async (discount) => {
+    const teacherDiscount = discount.Discount;
 
+    if (!teacherDiscount) return discount; 
+
+    const curriculum = await Curriculum.findOne({ where: { id: teacherDiscount.curriculums } });
+    const classData = await Class.findOne({ where: { id: teacherDiscount.class } });
+    const subject = await Subject.findOne({ where: { id: teacherDiscount.subject } });
+    const teacher = await Teacher.findOne({ where: { id: teacherDiscount.TeacherId } });
+
+    return {
+      ...discount.toJSON(),
+      Discount: {
+        ...teacherDiscount.toJSON(),
+        curriculum,
+        classData,
+        subject,
+        teacher
+      },
+    };
+  }));
     res.send({
       status: 201,
-      data: dataTeacherDiscount,
+      data: enrichedDiscount,
       msg: {
         arabic  : "ارجاع جميع الخصومات الموافقة عليها",
         english : "successful get all Discounts",
@@ -1494,7 +1581,154 @@ const getStudentDiscounts = async (req, res) => {
     });
 };
 
+async function getLecturesWithQuestions(req, res) {
+  try {
+    const { StudentId } = req.params; // جلب studentId من المعاملات
+
+    // الخطوة 1: جلب المحاضرات التي سجل فيها الطالب ويحتوي بعضها على أسئلة
+    const sessions = await StudentLecture.findAll({
+      where: {
+        StudentId: StudentId,
+        isPaid: 1, // التأكد أن الطالب قبل المحاضرة
+      }
+    });
+
+    if (!sessions.length) {
+      return res.status(404).send({
+        message: {
+          arabic: "الطالب غير مشترك في أي محاضرة",
+          english: "The student is not enrolled in any lecture",
+        },
+      });
+    }
+    console.log(sessions);
+    
+
+    const lectureIds = sessions.map((session) => session.TeacherLectureId);
+
+    // الخطوة 2: جلب الأسئلة المتعلقة بتلك المحاضرات
+    const lecturesWithQuestions = await TeacherQuestion.findAll({
+      where: {
+        TeacherLectureId: lectureIds, // جلب الأسئلة للمحاضرات التي يشترك فيها الطالب
+      }
+    });
+
+    if (!lecturesWithQuestions.length) {
+      return res.status(404).send({
+        message: {
+          arabic: "لا توجد محاضرات تحتوي على أسئلة",
+          english: "No lectures with questions found",
+        },
+      });
+    }
+
+    const lecturesWithQuestionsIds = lecturesWithQuestions.map((q) => q.TeacherLectureId);
+
+    // الخطوة 3: جلب أسماء المحاضرات المرتبطة بتلك المحاضرات
+    const lectures = await TeacherLecture.findAll({
+      where: {
+        id: lecturesWithQuestionsIds,
+      },
+      attributes: ["id", "titleEN","titleAR"], // جلب الاسم والمعرّف فقط
+    });
+
+    // الخطوة 4: إنشاء الشكل النهائي للبيانات
+    const responseData = lectures.map((lecture) => ({
+      Id: lecture.id,
+      nameEN: `Question of ${lecture.titleEN}`,
+      nameAR: `أسئلة عن ${lecture.titleAR}`,
+    }));
+
+    // الخطوة 5: إرسال النتيجة
+    res.status(200).send({
+      status: "success",
+      data: responseData,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({
+      error: error.message || error,
+      message: {
+        arabic: "حدث خطأ أثناء استرجاع البيانات",
+        english: "An error occurred while fetching the data",
+      },
+    });
+  }
+}
+async function getMyQuestions(req, res) {
+  try {
+    const { id } = req.params;
+
+    // جلب الأسئلة الخاصة بالمحاضرة
+    const questions = await TeacherQuestion.findAll({
+      where: {
+        TeacherLectureId: id,
+      },
+      attributes: ["id", "TeacherLectureId", "titleAR", "titleEN"],
+    });
+
+    if (!questions.length) {
+      return res.status(404).send({
+        message: {
+          arabic: "لا توجد أسئلة مرتبطة بهذه المحاضرات",
+          english: "No questions found for these lectures",
+        },
+      });
+    }
+
+    // جلب الإجابات لكل سؤال والتحقق من عدد الإجابات
+    const questionsWithAnswers = await Promise.all(
+      questions.map(async (question) => {
+        const answers = await TeacherQuestionChoose.findAll({
+          where: { TeacherQuestionId: question.id },
+          attributes: ["id", "titleAR", "titleEN", "isCorrectAnswer"],
+        });
+
+        // إذا كان عدد الإجابات أقل من 4، لا يتم تضمين السؤال
+        if (answers.length < 4) {
+          return null; // إعادة null في حالة عدم وجود 4 إجابات
+        }
+
+        return {
+          ...question.dataValues,
+          answers,
+        };
+      })
+    );
+
+    // إزالة الأسئلة التي لم تحتوي على 4 إجابات
+    const filteredQuestions = questionsWithAnswers.filter(
+      (question) => question !== null
+    );
+
+    if (!filteredQuestions.length) {
+      return res.status(404).send({
+        message: {
+          arabic: "لا توجد أسئلة تحتوي على 4 إجابات أو أكثر",
+          english: "No questions with 4 or more answers found",
+        },
+      });
+    }
+
+    // إرسال النتيجة
+    res.status(200).send({
+      status: "success",
+      data: filteredQuestions,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({
+      error: error.message || error,
+      message: {
+        arabic: "حدث خطأ أثناء استرجاع البيانات",
+        english: "An error occurred while fetching the data",
+      },
+    });
+  }
+}
 module.exports = {
+  getLecturesWithQuestions,
+  getMyQuestions,
   createExchangeRequestsStudent,
   signUp,               verifyCode,       signPassword,
   signData,             getStudents,      getSingleStudent,

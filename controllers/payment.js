@@ -25,6 +25,7 @@ const {
 } = require("../utils/SMSBodyGenerator");
 const { sendWhatsAppTemplate } = require("../utils/whatsapp");
 const StudentLecture = require("../models/StudentLecture");
+const Notification = require("../models/Notification");
 dotenv.config();
 const charge = async (req, res) => {
   const { StudentId, price, currency } = req.body;
@@ -568,7 +569,7 @@ const bookingTest = async (req, res) => {
   let {
     title,  StudentId,  TeacherId,
     price,  currency,   typeOfPayment,
-    date,   language,
+    date,   language,TestId
   } = req.body;
 
   console.log(req.body);
@@ -578,7 +579,7 @@ const bookingTest = async (req, res) => {
     const objStudentTest = await StudentTest.create({
       title,    StudentId,    TeacherId,
       price,    currency,     typeOfPayment,
-      date,
+      date,TestId
     });
     return objStudentTest;
   };
@@ -767,7 +768,7 @@ const bookingDiscount = async (req, res) => {
   let {
     title,      StudentId,      TeacherId,
     price,      currency,       typeOfPayment,
-    language,
+    language,DiscountId
   } = req.body;
 
   console.log(req.body);
@@ -776,7 +777,7 @@ const bookingDiscount = async (req, res) => {
   const createStudentDiscount = async () => {
     const objStudentDiscount = await StudentDiscount.create({
       title,    StudentId,    TeacherId,
-      price,    currency,     typeOfPayment,
+      price,    currency,     typeOfPayment,DiscountId
     });
     return objStudentDiscount;
   };
@@ -964,6 +965,7 @@ const bookingLecture = async (req, res) => {
   let {
     title,      StudentId,      TeacherId,
     price,      currency,           typeOfPayment,
+    TeacherLectureId,
     language,
   } = req.body;
 
@@ -973,7 +975,7 @@ const bookingLecture = async (req, res) => {
   const createStudentLecture = async () => {
     const objStudentLecture = await StudentLecture.create({
       title,    StudentId,    TeacherId,
-      price,    currency,     typeOfPayment,
+      price,    currency,     typeOfPayment,TeacherLectureId
     });
     return objStudentLecture;
   };
@@ -1089,14 +1091,15 @@ const bookingLecture = async (req, res) => {
     teacher.bookingLectureNumbers += 1;
     await teacher.save();
     
-    await Notifications.add({
-      titleAR: `تم حجز الاختبار للطالب ${student.name}`,
-      titleEn: `booking test successfully from student ${student.name}`,
-      TeacherId,
-      seen: false,
-      date: Date.now(),
-    });
-    
+    await Notification.create(
+            {
+                userId: StudentId,
+                userType: "Student",
+                type: "lecture_booking",
+                messageAr: `تم حجز الاختبار للطالب ${student.name}`,
+                messageEn: `booking test successfully from student ${student.name}`
+            }
+        );
 
     console.log("Test 8");
     const mailOptions = generateSessionConfirmationEmail(
@@ -1158,7 +1161,7 @@ const bookingLecture = async (req, res) => {
 const bookingPackage = async (req, res) => {
   let {
     title,      StudentId,        TeacherId,
-    price,      currency,         typeOfPayment,
+    price,      currency,         typeOfPayment,PackageId,
     language,
   } = req.body;
 
@@ -1168,6 +1171,7 @@ const bookingPackage = async (req, res) => {
   const createStudentPackage = async () => {
     const objStudentPackage = await StudentPackage.create({
       title,    StudentId,    TeacherId,
+      PackageId,
       price,    currency,     typeOfPayment,
     });
     return objStudentPackage;

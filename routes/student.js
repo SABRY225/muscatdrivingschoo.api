@@ -17,6 +17,8 @@ const {
   updateLogout,           bookLecture,              bookPackage,
   bookTest,               getStudentTests,          getStudentLectures,
   getStudentPackages,     getRefundStudentById,     getStudentDiscounts,
+  getLecturesWithQuestions,
+  getMyQuestions,
 } = require("../controllers/student");
 const checkUserAuth = require("../middlewares/checkUserAuth");
 const verifyToken   = require("../middlewares/verifyToken");
@@ -56,7 +58,6 @@ studentRouter.get("/nearestTeachers/:StudentId",verifyToken,checkUserAuth("stude
 studentRouter.get("/financialRecords/:StudentId",verifyToken,checkUserAuth("student"),errorCatcher(getFinancialRecords));
 studentRouter.put("/updateNotification/:StudentId", verifyToken, checkUserAuth("student"), errorCatcher(updateNotification));
 
-// Developer By eng.reem.shwky@gmail.com 28-07-2024
 studentRouter.post("/exchangerequeststudents",  errorCatcher(createExchangeRequestsStudent));
 studentRouter.put( "/setting/:StudentId",  verifyToken,   checkUserAuth("student"), errorCatcher(settingNotification));
 studentRouter.get("/getParentsByStudent/:StudentId",      errorCatcher(getParentsByStudentId));
@@ -67,6 +68,8 @@ studentRouter.post("/registerTest",       verifyToken,    checkUserAuth("student
 
 studentRouter.get("/tests/:StudentId",         errorCatcher(getStudentTests));
 studentRouter.get("/lectures/:StudentId",      errorCatcher(getStudentLectures));
+studentRouter.get("/getLecturesWithQuestions/:StudentId",      errorCatcher(getLecturesWithQuestions));
+studentRouter.get("/getMyQuestions/:id",      errorCatcher(getMyQuestions));
 studentRouter.get("/packages/:StudentId",      errorCatcher(getStudentPackages));
 studentRouter.get("/discounts/:StudentId",     errorCatcher(getStudentDiscounts));
 studentRouter.get("/refunds/:StudentId",       errorCatcher(getRefundStudentById));

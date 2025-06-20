@@ -6,6 +6,7 @@ router.get('/', function(req, res, next) {
 });
 
 const inviteRouter = require("./Invite");
+const lessonRouter = require("./lesson");
 const adminRouter     = require("./admin");
 const studentRouter   = require("./student");
 const teacherRouter   = require("./teacher");
@@ -41,6 +42,7 @@ router.post("/forgetPassword/code", errorCatcher(verifyCodeForgottenPassword));
 router.post("/forgetPassword/edit", errorCatcher(editForgottenPassword));
 router.use("/currency", currencyRouter);
 router.use("/invite", inviteRouter);
+router.use("/lesson", lessonRouter);
 router.use("/notification", notificationRouter);
 router.use("/message", messagerouter);
 router.get("/dashboard/counts", getCounts);
