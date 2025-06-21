@@ -466,6 +466,99 @@ const adminSendEmailBody = (message, language, email) => {
 </div>`,
       };
 };
+exports.generateInvoiceEmailBody = ({ studentName, itemName, price, currency, date }) => {
+  return `
+    <div style="font-family: Arial; line-height: 1.5">
+      <h2>Invoice</h2>
+      <p>Hello ${studentName},</p>
+      <p>Thank you for your purchase. Below are your invoice details:</p>
+      <ul>
+        <li><strong>Item:</strong> ${itemName}</li>
+        <li><strong>Amount:</strong> ${price} ${currency}</li>
+        <li><strong>Date:</strong> ${new Date(date).toLocaleDateString("en-US")}</li>
+      </ul>
+      <p>If you have any questions, feel free to contact us.</p>
+      <p>Best regards,<br/>Support Team</p>
+    </div>
+  `;
+};
+
+exports.generateChargeInvoiceEmail = (
+  language,
+  name,
+  email,
+  amount,
+  currency,
+  sessionId,
+  date = new Date()
+) => {
+  const formattedDate = new Date(date).toLocaleString(language === "ar" ? "ar-EG" : "en-US", {
+    year: "numeric", month: "long", day: "numeric",
+    hour: "2-digit", minute: "2-digit"
+  });
+
+  const isArabic = language === "ar";
+
+  const subject = isArabic ? "فاتورة تأكيد الدفع" : "Payment Confirmation Invoice";
+  const header = isArabic ? "منصة مسقط لتعليم قيادة السيارات" : "Muscat Driving School Platform";
+  const greeting = isArabic ? "شكراً لاستخدامك منصتنا!" : "Thank you for using our platform!";
+  const regards = isArabic ? "أطيب التحيات،" : "Best regards,";
+  const footerRights = isArabic ? "© مسقط لتعليم قيادة السيارات. جميع الحقوق محفوظة." : "© Muscat Driving School. All rights reserved.";
+  const terms = isArabic ? "شروط الخدمة" : "Terms of Service";
+  const privacy = isArabic ? "سياسة الخصوصية" : "Privacy Policy";
+  const serviceLink = "https://muscatdrivingschool.com/TermsAndConditions";
+  const privacyLink = "https://muscatdrivingschool.com/PrivacyPolicy";
+
+  const bodyContent = isArabic
+    ? `
+      <h3 style="color: #004aad;">📄 فاتورة تأكيد الدفع</h3>
+      <p><strong>الاسم:</strong> ${name}</p>
+      <p><strong>المبلغ:</strong> ${amount} ${currency}</p>
+      <p><strong>تاريخ الدفع:</strong> ${formattedDate}</p>
+      ${sessionId?`<p><strong>رقم العملية:</strong> ${sessionId}</p>`:''}
+      <p style="margin-top: 30px;">${greeting}</p>
+    `
+    : `
+      <h3 style="color: #004aad;">📄 Payment Confirmation Invoice</h3>
+      <p><strong>Name:</strong> ${name}</p>
+      <p><strong>Amount:</strong> ${amount} ${currency}</p>
+      <p><strong>Payment Date:</strong> ${formattedDate}</p>
+      ${sessionId?`<p><strong>Transaction ID:</strong> ${sessionId}</p>`:''}
+      <p style="margin-top: 30px;">${greeting}</p>
+    `;
+
+  return {
+    to: email,
+    subject,
+    html: `
+      <div style="font-family: Arial, sans-serif; line-height: 1.6; max-width: 700px; margin: auto; border: 1px solid #ddd;">
+        <div style="background-color: #004aad; padding: 15px; color: white; text-align: center;">
+          <h2 style="margin: 0;">${header}</h2>
+        </div>
+
+        <div style="padding: 25px;">
+          ${bodyContent}
+        </div>
+
+        <div style="margin-top: 20px; padding: 10px; text-align: center; background-color: #f4f4f4; border-top: 1px solid #ddd;">
+          <p>${regards}</p>
+          <strong>مسقط لتعليم قيادة السيارات</strong><br>
+          <a href="https://muscatdrivingschool.com">muscatdrivingschool.com</a><br><br>
+          <p>${footerRights}</p>
+          <p>
+            ${
+              isArabic
+                ? `بإرسال هذا البريد الإلكتروني، فإنك توافق على <a href="${serviceLink}">${terms}</a> و <a href="${privacyLink}">${privacy}</a>.`
+                : `By receiving this email, you agree to our <a href="${serviceLink}">${terms}</a> and <a href="${privacyLink}">${privacy}</a>.`
+            }
+          </p>
+        </div>
+      </div>
+    `,
+  };
+};
+
+
 module.exports = {
   generateConfirmEmailBody,
   generateWelcomeEmailBody,

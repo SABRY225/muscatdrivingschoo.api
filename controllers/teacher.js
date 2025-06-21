@@ -9,7 +9,6 @@ const {
   Experience,   EducationDegree,
   Language,     Days,             Level,      Curriculum,
   Subject,      Session,          FinancialRecord,    Rate,     CheckoutRequest,      Admin,
-  // Developer by eng.reem.shwky@gmail.com
   TrainingCategoryType,       LimeType,               TeacherTypes,
   TeacherLimits,              TeacherLecture,         TeacherLesson,
   TeacherQuestion,            TeacherQuestionChoose,
@@ -42,6 +41,8 @@ const {
 const { sendWhatsAppTemplate } = require("../utils/whatsapp");
 const sendWhatsAppVerificationCode = require("../utils/sendWhatsAppVerificationCode");
 const Discounts = require("../models/Discounts");
+const { sendNotification } = require("../services/shared/notification.service");
+const { sendLessonEmail } = require("../utils/sendEmailLessonMeeting");
 dotenv.config();
 let currencyConverter = new CC();
 
@@ -71,22 +72,16 @@ const signUp = async (req, res) => {
 
   if (teacher)
     throw serverErrs.BAD_REQUEST({
-      //arabic: "الإيميل مستخدم سابقا",
-      //english: "email is already used",
       arabic      : "عفوا ، الحساب غير صالح ، نرجو مراجعه بياناتك مره اخري لكي يتم انشاء حسابك بشكل ناجح",
       english     : "Sorry, the account is not valid. Please review your data again so that your account can be created successfully.",
     });
   if (student)
     throw serverErrs.BAD_REQUEST({
-      //arabic: "الإيميل مستخدم سابقا",
-      //english: "email is already used",
       arabic      : "عفوا ، الحساب غير صالح ، نرجو مراجعه بياناتك مره اخري لكي يتم انشاء حسابك بشكل ناجح",
       english     : "Sorry, the account is not valid. Please review your data again so that your account can be created successfully.",
     });
   if (parent)
     throw serverErrs.BAD_REQUEST({
-      //arabic: "الإيميل مستخدم سابقا",
-      //english: "email is already used",
       arabic      : "عفوا ، الحساب غير صالح ، نرجو مراجعه بياناتك مره اخري لكي يتم انشاء حسابك بشكل ناجح",
       english     : "Sorry, the account is not valid. Please review your data again so that your account can be created successfully.",
     });
@@ -214,7 +209,7 @@ const signPassword = async (req, res) => {
     name: teacher.name,
     role: "teacher",
   });
-
+ await sendNotification("انضمام معلم جديد الي المنصة","A new teacher joins the platform","1","register_teacher","admin");
   const mailOptions = generateWelcomeEmailBody(
     language,
     teacher.firstName + " " + teacher.lastName,
@@ -1307,6 +1302,7 @@ const acceptLesson = async (req, res) => {
 
   await session.update({ teacherAccept: true });
 
+  
   res.send({
     status: 201,
     msg: {
@@ -1317,31 +1313,65 @@ const acceptLesson = async (req, res) => {
 };
 
 const endLesson = async (req, res) => {
-  const { TeacherId } = req.params;
-  const { SessionId } = req.body;
+  try {
+    const { TeacherId } = req.params;
+    const { SessionId, lang = "en" } = req.body;
 
-  const session = await Session.findOne({
-    where: {
-      id: SessionId,
-      TeacherId,
-    },
-  });
-
-  if (!session)
-    throw serverErrs.BAD_REQUEST({
-      arabic: "الجلسة غير موجودة",
-      english: "session not found",
+    const session = await Session.findOne({
+      where: {
+        id: SessionId,
+        TeacherId,
+      },
     });
-  console.log("date.now: ", Date.now());
-  await session.update({ endedAt: Date.now() });
 
-  res.send({
-    status: 201,
-    msg: {
-      arabic: "تم تعديل الجلسة بنجاح",
-      english: "successful update session",
-    },
-  });
+    if (!session)
+      return res.status(400).send({
+        status: 400,
+        message: {
+          arabic: "الجلسة غير موجودة",
+          english: "Session not found",
+        },
+      });
+
+    const now = Date.now();
+    await session.update({ endedAt: now });
+
+    const [student, teacher] = await Promise.all([
+      Student.findByPk(session.StudentId),
+      Teacher.findByPk(session.TeacherId),
+    ]);
+
+    const message = lang === "ar" ? "انتهى الدرس الآن." : "The lesson is now finished.";
+
+    // إرسال الإشعارات بالتوازي
+    await Promise.all([
+      sendNotification(message, message, session.StudentId, "lesson_end", "student"),
+      sendNotification(message, message, TeacherId, "lesson_end", "teacher"),
+    ]);
+
+    // إرسال الإيميلات بالتوازي
+    await Promise.all([
+      sendLessonEmail(student.email, lang, message, "end"),
+      sendLessonEmail(teacher.email, lang, message, "end"),
+    ]);
+
+    return res.status(201).send({
+      status: 201,
+      msg: {
+        arabic: "تم إنهاء الجلسة بنجاح",
+        english: "Lesson ended successfully",
+      },
+    });
+  } catch (error) {
+    return res.status(500).send({
+      status: 500,
+      error: error.message,
+      msg: {
+        arabic: "حدث خطأ ما أثناء إنهاء الجلسة",
+        english: "An error occurred while ending the session",
+      },
+    });
+  }
 };
 
 const requestCheckout = async (req, res) => {

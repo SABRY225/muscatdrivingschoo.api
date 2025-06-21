@@ -73,12 +73,12 @@ const login = async (req, res) => {
     </div>
     <div style="padding: 20px;" align="right">
         <div><b>${student?.name || teacher?.firstName + " " + teacher?.lastName}</b> مرحبا</div>
-        <div>يرجى استكمال بيانات ملفك الشخصي لمنصة مسقط قيادة لتعليم السيارات</div>
+        <div>يرجى استكمال بيانات ملفك الشخصي لمنصة مسقط لتعليم قيادة السيارات</div>
         <div>شكراً لك</div>
     </div>
     <div style="margin-top: 20px; padding: 10px; text-align: center; background-color: #f4f4f4; border-top: 1px solid #ddd;">
         <a href="mailto:info@muscatdrivingschool.com">info@muscatdrivingschool.com</a>.
-        <p>منصة مسقط قيادة لتعليم السيارات ©. جميع الحقوق محفوظة.</p>
+        <p>منصة مسقط لتعليم قيادة السيارات ©. جميع الحقوق محفوظة.</p>
     </div>
   </div>` : `
   <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px;">

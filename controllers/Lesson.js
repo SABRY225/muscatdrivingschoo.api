@@ -87,7 +87,7 @@ const createRequest = async (req, res, next) => {
         });
 
     } catch (error) {
-        console.error('🔥 Error in createRequest:', error);
+        console.error('Error in createRequest:', error);
         res.status(500).send({
             status: 500,
             error: error.message,
@@ -98,7 +98,6 @@ const createRequest = async (req, res, next) => {
         });
     }
 };
-
 
 const generateArabicEmail = (studentName) => `
   <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px; direction: rtl;">
@@ -485,113 +484,130 @@ const getAllLessonRequestByTeacherPending = async (req, res, next) => {
         });
     }
 }
-const acceptRequest = async (req, res, next) => {
-    try {
-        const { id } = req.params;
-        const { lang } = req.body;
+const acceptRequest = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { lang } = req.body;
 
-        const lession = await Lessons.findByPk(id);
-        if (!lession) {
-            return res.status(404).send({
-                status: 404,
-                data: [],
-                message: {
-                    arabic: "طلب حجز الدرس غير موجود",
-                    english: "request lestion not found"
-                }
-            });
-        }
-        const student = await Student.findOne({
-            where: { id: lession.studentId },
-        });
-        const notificationStudent = await Notification.create(
-            {
-                userId: lession.studentId,
-                userType: "Student",
-                type: "lesson_approved_request",
-                messageAr: "تاكيد طلب الحجز الدرس",
-                messageEn: "Confirm lesson reservation request"
-            }
-        );
-        await lession.update({ status: "approved" });
-        await notificationStudent.save();
-        if (lang === "ar") {
-            sendEmailRequest(student.email, lang, "تم تاكيد طلبك بنجاح الرجاء الذها الي قسم مدفوعات طلبات حجز الحصص لكي تتم عملية الدفع ")
-        } else {
-            sendEmailRequest(student.email, lang, "Your order has been successfully confirmed. Please go to the Class Reservation Request Payments section to complete the payment process.")
-        }
-        return res.send({
-            status: 200,
-            message: {
-                arabic: "تم تاكيد طلب الحجز الدرس بنجاح",
-                english: "Your lesson reservation request has been successfully confirmed."
-            }
-        });
-
-    } catch (error) {
-        res.status(500).send({
-            status: 500,
-            error: error.message,
-            message: {
-                arabic: "حدث خطأ ما",
-                english: "Something went wrong"
-            }
-        });
+    const lession = await Lessons.findByPk(id);
+    if (!lession) {
+      return res.status(404).send({
+        status: 404,
+        message: {
+          arabic: "طلب حجز الدرس غير موجود",
+          english: "Request lesson not found",
+        },
+      });
     }
-}
 
-const rejectRequest = async (req, res, next) => {
-    try {
-        const { id } = req.params;
-        const { lang } = req.body;
-        const lession = await Lessons.findByPk(id);
-        if (!lession) {
-            return res.status(404).send({
-                status: 404,
-                data: [],
-                message: {
-                    arabic: "طلب حجز الدرس غير موجود",
-                    english: "request lestion not found"
-                }
-            });
-        }
-        const student = await Student.findOne({
-            where: { id: lession.studentId },
-        });
-        const notificationStudent = await Notification.create(
-            {
-                userId: lession.studentId,
-                userType: "Student",
-                type: "lesson_canceled_request",
-                messageAr: "تم رفض طلب الحجز الدرس",
-                messageEn: "The lesson reservation request was rejected."
-            }
-        );
-        await lession.update({ status: "canceled" });
-        await notificationStudent.save();
-        if (lang === "ar") {
-            sendEmailRequest(student.email, lang, "تم رفض  طلبك بخصوص حجز الحصة يمكن اختيار معلم اخر وطلب حجز حصة")
-        } else {
-            sendEmailRequest(student.email, lang, "Your request to reserve a class has been rejected. You can choose another teacher and request to reserve a class.")
-        }
-        res.send({
-            status: 200,
-            message: {
-                arabic: "تم رفض طلب الحجز الدرس",
-                english: "The lesson reservation request was rejected."
-            }
-        });
-    } catch (error) {
-        res.status(400).send({
-            status: 400,
-            error: error,
-            message: {
-                arabic: "حدث خطأ ما",
-                english: "Something went wrong"
-            }
-        });
+    const studentPromise = Student.findOne({ where: { id: lession.studentId } });
+    const notificationPromise = Notification.create({
+      userId: lession.studentId,
+      userType: "Student",
+      type: "lesson_approved_request",
+      messageAr: "تأكيد طلب الحجز الدرس",
+      messageEn: "Confirm lesson reservation request",
+    });
+
+    lession.status = "approved";
+
+    const [student, notification] = await Promise.all([
+      studentPromise,
+      notificationPromise,
+      lession.save(),
+    ]);
+
+    const message =
+      lang === "ar"
+        ? "تم تأكيد طلبك بنجاح، الرجاء الذهاب إلى قسم مدفوعات طلبات حجز الحصص لإتمام عملية الدفع."
+        : "Your request has been confirmed. Please proceed to Class Reservation Payments to complete payment.";
+
+    await sendEmailRequest(student.email, lang, message);
+
+    return res.status(200).send({
+      status: 200,
+      message: {
+        arabic: "تم تأكيد طلب الحجز بنجاح",
+        english: "Lesson reservation confirmed successfully",
+      },
+    });
+  } catch (error) {
+    return res.status(500).send({
+      status: 500,
+      error: error.message,
+      message: {
+        arabic: "حدث خطأ ما",
+        english: "Something went wrong",
+      },
+    });
+  }
+};
+
+
+const rejectRequest = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { lang } = req.body;
+
+    // ابحث عن الحجز
+    const lession = await Lessons.findByPk(id);
+    if (!lession) {
+      return res.status(404).send({
+        status: 404,
+        message: {
+          arabic: "طلب حجز الدرس غير موجود",
+          english: "Lesson reservation request not found",
+        },
+      });
     }
-}
+
+    // جهز العمليات المطلوبة
+    const studentPromise = Student.findOne({ where: { id: lession.studentId } });
+    const updateStatusPromise = lession.update({ status: "canceled" });
+    const notificationPromise = Notification.create({
+      userId: lession.studentId,
+      userType: "Student",
+      type: "lesson_canceled_request",
+      messageAr: "تم رفض طلب الحجز الدرس",
+      messageEn: "The lesson reservation request was rejected.",
+    });
+
+    // نفذهم مع بعض
+    const [student] = await Promise.all([
+      studentPromise,
+      updateStatusPromise,
+      notificationPromise,
+    ]);
+
+    // إرسال البريد الإلكتروني
+    const message =
+      lang === "ar"
+        ? "تم رفض طلبك بخصوص حجز الحصة. يمكنك اختيار معلم آخر وطلب حجز حصة جديدة."
+        : "Your request to reserve a class has been rejected. You can choose another teacher and request to reserve a class.";
+
+    await sendEmailRequest(student.email, lang, message);
+
+    // الرد
+    return res.status(200).send({
+      status: 200,
+      message: {
+        arabic: "تم رفض طلب الحجز الدرس",
+        english: "The lesson reservation request was rejected.",
+      },
+    });
+
+  } catch (error) {
+    return res.status(500).send({
+      status: 500,
+      error: error.message,
+      message: {
+        arabic: "حدث خطأ ما",
+        english: "Something went wrong",
+      },
+    });
+  }
+};
+
 
 const getCountsLesson=async(req, res)=>{
     try {

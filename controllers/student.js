@@ -43,6 +43,8 @@ const {
 const sendWhatsAppVerificationCode = require("../utils/sendWhatsAppVerificationCode");
 const { sendWhatsAppTemplate } = require("../utils/whatsapp");
 const StudentLecture = require("../models/StudentLecture");
+const { sendNotification } = require("../services/shared/notification.service");
+const { sendLessonEmail } = require("../utils/sendEmailLessonMeeting");
 dotenv.config();
 
 const signUp = async (req, res) => {
@@ -317,6 +319,7 @@ const signData = async (req, res) => {
     CurriculumId: student.CurriculumId,
     ParentId: student.ParentId,
   };
+ await sendNotification("انضمام طالب جديد الي المنصة","A new student joins the platform","1","register_student","admin");
   res.send({
     status: 201,
     data: student,
@@ -931,6 +934,7 @@ const acceptLesson = async (req, res) => {
 
   await session.update({ studentAccept: true });
 
+
   res.send({
     status: 201,
     msg: {
@@ -941,31 +945,62 @@ const acceptLesson = async (req, res) => {
 };
 
 const startLesson = async (req, res) => {
-  const { StudentId } = req.params;
-  const { SessionId } = req.body;
+  try {
+    const { StudentId } = req.params;
+    const { SessionId, lang = "en" } = req.body;
 
-  const session = await Session.findOne({
-    where: {
-      id: SessionId,
-      StudentId,
-    },
-  });
-
-  if (!session)
-    throw serverErrs.BAD_REQUEST({
-      arabic: "الجلسة غير موجودة",
-      english: "session not found",
+    const session = await Session.findOne({
+      where: {
+        id: SessionId,
+        StudentId,
+      },
     });
-  console.log("date.now: ", Date.now());
-  await session.update({ startedAt: Date.now() });
 
-  res.send({
-    status: 201,
-    msg: {
-      arabic: "تم تعديل الجلسة بنجاح",
-      english: "successful update session",
-    },
-  });
+    if (!session) {
+      return res.status(400).send({
+        status: 400,
+        message: {
+          arabic: "الجلسة غير موجودة",
+          english: "Session not found",
+        },
+      });
+    }
+
+    const now = Date.now();
+    await session.update({ startedAt: now });
+
+    const [student, teacher] = await Promise.all([
+      Student.findByPk(StudentId),
+      Teacher.findByPk(session.TeacherId),
+    ]);
+
+    const message = lang === "ar" ? "تم بدء الدرس الان" : "The lesson has started now";
+
+    await Promise.all([
+      sendNotification(message, message, StudentId, "lesson_start", "student"),
+      sendNotification(message, message, teacher.id, "lesson_start", "teacher"),
+      sendLessonEmail(student.email, lang, message, "start"),
+      sendLessonEmail(teacher.email, lang, message, "start"),
+    ]);
+
+    return res.status(201).send({
+      status: 201,
+      msg: {
+        arabic: "تم بدء الجلسة بنجاح",
+        english: "Lesson started successfully",
+      },
+    });
+  } catch (error) {
+    console.error("❌ Error in startLesson:", error);
+    return res.status(500).send({
+      status: 500,
+      error: error.message,
+      msg: {
+        arabic: "حدث خطأ أثناء بدء الجلسة",
+        english: "An error occurred while starting the session",
+      },
+    });
+  }
 };
 
 const nearestTeachers = async (req, res) => {

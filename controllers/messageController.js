@@ -1,7 +1,7 @@
 const { Student } = require("../models");
 const Messages = require("../models/Messages");
-// const { Notifications } = require("../firebaseConfig");
 const Notification = require("../models/Notification");
+const { sendNotification } = require("../services/shared/notification.service");
 
 exports.getMessages = async (req, res) => {
   try {
@@ -44,6 +44,7 @@ exports.postMessage = async (req, res) => {
     }
 
     await Messages.create({ text:message, from_user,title });
+    await sendNotification("شكوي جديدة","New complaint","1","complaint","admin")
     res.json({ success: true,message: {
         ar:"تم ارسال الشكوي بنجاح ",
         en:"Complaint sent successfully" 

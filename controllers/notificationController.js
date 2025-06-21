@@ -46,18 +46,11 @@ const getNotificationsUnreadCount = async (req, res) => {
     try {
         const { userId } = req.params;
 
-        let whereClause = { userId };
-
-        const notifications = await Notification.findAll({
-            where: whereClause,
-            order: [["createdAt", "DESC"]],
-        });
-
         // حساب عدد التنبيهات الغير مقروءة
         const unreadCount = await Notification.count({
             where: {
                 userId,
-                isRead: false,
+                isRead: 0,
             },
         });
 
