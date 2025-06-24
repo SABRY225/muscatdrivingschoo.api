@@ -52,8 +52,7 @@ const login = async (req, res) => {
     const requiredFields = [
       "firstName", "lastName", "gender", "dateOfBirth", "phone", "email",
       "country", "city", "image", "favStdGender", "experienceYears",
-      "favHours", "shortHeadlineAr", "shortHeadlineEn",
-      "descriptionAr", "descriptionEn"
+      "favHours", "descriptionAr"
     ];
     missingFields = requiredFields.filter((field) => !teacher[field]);
   }else if(role=="student"){

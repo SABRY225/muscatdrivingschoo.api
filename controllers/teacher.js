@@ -43,6 +43,7 @@ const sendWhatsAppVerificationCode = require("../utils/sendWhatsAppVerificationC
 const Discounts = require("../models/Discounts");
 const { sendNotification } = require("../services/shared/notification.service");
 const { sendLessonEmail } = require("../utils/sendEmailLessonMeeting");
+const Invite = require("../models/Invite");
 dotenv.config();
 let currencyConverter = new CC();
 
@@ -183,100 +184,69 @@ const verifyCode = async (req, res) => {
   });
 };
 
-const signPassword = async (req, res) => {
-  const { email, password, language } = req.body;
+const signPassword = async (req, res, next) => {
+  try {
+    const { email, password, language } = req.body;
 
-  let teacher = await Teacher.findOne({
-    where: {
-      email,
-      isRegistered: true,
-    },
-  });
-
-  if (!teacher)
-    throw serverErrs.BAD_REQUEST({
-      arabic: "الإيميل مستخدم سابقا",
-      english: "email is already used",
+    let teacher = await Teacher.findOne({
+      where: { email, isRegistered: true },
     });
 
-  const hashedPassword = await hash(password, 12);
+    if (!teacher) {
+      throw serverErrs.BAD_REQUEST({
+        arabic: "الإيميل مستخدم سابقا",
+        english: "Email is already used",
+      });
+    }
 
-  await teacher.update({ password: hashedPassword });
-  await teacher.save();
+    const hashedPassword = await hash(password, 12);
+    await teacher.update({ password: hashedPassword });
 
-  const token = await generateToken({
-    userId: teacher.id,
-    name: teacher.name,
-    role: "teacher",
-  });
- await sendNotification("انضمام معلم جديد الي المنصة","A new teacher joins the platform","1","register_teacher","admin");
-  const mailOptions = generateWelcomeEmailBody(
-    language,
-    teacher.firstName + " " + teacher.lastName,
-    email
-  );
-  // added by Abdelwahab
-  const smsOptions = {
-    body: generateWelcomeSMSBody(
+    const token = await generateToken({
+      userId: teacher.id,
+      name: teacher.name,
+      role: "teacher",
+    });
+
+    await sendNotification(
+      "انضمام معلم جديد الي المنصة",
+      "A new teacher joins the platform",
+      "1",
+      "register_teacher",
+      "admin"
+    );
+
+    const mailOptions = generateWelcomeEmailBody(
       language,
-      teacher.firstName + " " + teacher.lastName
-    ),
-    to: teacher.phone,
-  };
-  sendEmail(mailOptions, smsOptions);
-  
-// بعد تسجيل المعلم بنجاح
-await sendWhatsAppTemplate({
-  to: teacher.phone,
-  templateName: "hello_user",
-  variables: [teacher.firstName + " " + teacher.lastName || "المعلم"],
-  language: lang === "ar" ? "ar" : "en_US",
-  recipientName: teacher.firstName + " " + teacher.lastName || "المعلم",
-});
-  teacher = {
-    id: teacher.id,
-    email: teacher.email,
-    firstName: teacher.firstName,
-    lastName: teacher.lastName,
-    phone: teacher.phone,
-    gender: teacher.gender,
-    image: teacher.image,
-    videoLink: teacher.videoLink,
-    dateOfBirth: teacher.dateOfBirth,
-    city: teacher.city,
-    country: teacher.country,
-    haveExperience: teacher.haveExperience,
-    experienceYears: teacher.experienceYears,
-    favStdGender: teacher.favStdGender,
-    haveCertificates: teacher.haveCertificates,
-    favHours: teacher.favHours,
-    timeZone: teacher.timeZone,
-    articleExperience: teacher.articleExperience,
-    shortHeadlineAr: teacher.shortHeadlineAr,
-    shortHeadlineEn: teacher.shortHeadlineEn,
-    descriptionAr: teacher.descriptionAr,
-    descriptionEn: teacher.descriptionEn,
-    instantBooking: teacher.instantBooking,
-    isRegistered: teacher.isRegistered,
-    isVerified: teacher.isVerified,
-    registerCode: teacher.registerCode,
-    rate: teacher.rate,
-    totalAmount: teacher.totalAmount,
-    dues: teacher.dues,
-    hoursNumbers: teacher.hoursNumbers,
-    bookingNumbers: teacher.bookingNumbers,
-    long: teacher.long,
-    lat: teacher.lat,
-    createdAt: teacher.createdAt,
-    updatedAt: teacher.updatedAt,
-  };
-  res.send({
-    status: 201,
-    data: teacher,
-    msg: { arabic: "تم التسجيل بنجاح", english: "successful sign up" },
-    token: token,
-  });
+      `${teacher.firstName} ${teacher.lastName}`,
+      email
+    );
+
+    const smsOptions = {
+      body: generateWelcomeSMSBody(language, `${teacher.firstName} ${teacher.lastName}`),
+      to: teacher.phone,
+    };
+
+    sendEmail(mailOptions, smsOptions);
+
+    await sendWhatsAppTemplate({
+      to: teacher.phone,
+      templateName: "hello_user",
+      variables: [teacher.firstName + " " + teacher.lastName || "المعلم"],
+      language: language === "ar" ? "ar" : "en_US",
+      recipientName: teacher.firstName + " " + teacher.lastName || "المعلم",
+    });
+
+    res.status(201).json({
+      data: teacher.toJSON(),
+      msg: { arabic: "تم التسجيل بنجاح", english: "Successful sign up" },
+      token,
+    });
+  } catch (error) {
+    next(error);  
+  }
 };
+
 
 const signAbout = async (req, res) => {
   const { teacherId } = req.params;
@@ -525,17 +495,11 @@ const getSingleTeacher = async (req, res) => {
 const uploadImage = async (req, res) => {
   const { teacherId } = req.params;
 
-  if (!req.file)
-    throw serverErrs.BAD_REQUEST({
-      arabic: " الصورة غير موجودة ",
-      english: "Image not exist ",
-    });
-
   const teacher = await Teacher.findOne({ where: { id: teacherId } });
   if (!teacher)
     throw serverErrs.BAD_REQUEST({
-      arabic: "المدرب غير موجود",
-      english: "Invalid trainerId! ",
+      arabic: "المعلم غير موجود",
+      english: "Invalid teacherId! ",
     });
 
   if (teacher.id != req.user.userId)
@@ -554,16 +518,17 @@ const uploadImage = async (req, res) => {
   if (teacher.image) {
     clearImage(teacher.image);
   }
-  await teacher.update({ image: req.file.filename });
+  await teacher.update({ image: req.files[0].filename });
   res.send({
     status: 201,
-    data: req.file.filename,
+    data: req.files[0].filename,
     msg: {
       arabic: "تم إدراج الصورة بنجاح",
       english: "uploaded image successfully",
     },
   });
 };
+
 
 const addSubjects = async (req, res) => {
   const { teacherId } = req.params;
@@ -830,6 +795,64 @@ const addDescription = async (req, res) => {
     },
   });
 };
+
+
+const PersonalDescription = async (req, res) => {
+  const { teacherId } = req.params;
+
+  // التأكد من وجود المعلم
+  const teacher = await Teacher.findOne({
+    where: { id: teacherId },
+    attributes: { exclude: ["password"] },
+  });
+
+  if (!teacher) {
+    throw serverErrs.BAD_REQUEST({
+      arabic: "المدرب غير موجود",
+      english: "Trainer not found",
+    });
+  }
+
+  // التحقق من الصلاحيات
+  if (teacher.id !== req.user.userId) {
+    throw serverErrs.UNAUTHORIZED({
+      arabic: "لا يوجد صلاحية للوصول",
+      english: "Unauthorized access",
+    });
+  }
+
+  const {
+    descriptionAr = teacher.descriptionAr,
+    videoLink = teacher.videoLink,
+    invitationLink,
+  } = req.body;
+
+  // التحديث
+  await teacher.update({
+    descriptionAr,
+    videoLink,
+  });
+
+  if (invitationLink) {
+    const inviter = await Invite.findOne({ where: { link: invitationLink } });
+
+    if (inviter) {
+      inviter.amountPoints = Number(inviter.amountPoints) + 3;
+      await inviter.save();
+    }
+  }
+
+  res.status(200).send({
+    status: 200,
+    data: teacher,
+    msg: {
+      arabic: "تم تحديث الوصف بنجاح",
+      english: "Description updated successfully",
+    },
+  });
+};
+
+
 
 const signResume = async (req, res) => {
   const { teacherId } = req.params;
@@ -2911,5 +2934,5 @@ module.exports = {
   deleteTest,                             getDiscountByTeacherId,
   getSingleDiscount,                      createDiscount,
   deleteDiscount,                         updateDiscount,
-  getRefundTeacherById,                   getAllTeachersRating,
+  getRefundTeacherById,                   getAllTeachersRating,PersonalDescription
 };

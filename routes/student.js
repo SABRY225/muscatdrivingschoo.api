@@ -19,6 +19,7 @@ const {
   getStudentPackages,     getRefundStudentById,     getStudentDiscounts,
   getLecturesWithQuestions,
   getMyQuestions,
+  getSessionsByStudent,
 } = require("../controllers/student");
 const checkUserAuth = require("../middlewares/checkUserAuth");
 const verifyToken   = require("../middlewares/verifyToken");
@@ -74,4 +75,5 @@ studentRouter.get("/packages/:StudentId",      errorCatcher(getStudentPackages))
 studentRouter.get("/discounts/:StudentId",     errorCatcher(getStudentDiscounts));
 studentRouter.get("/refunds/:StudentId",       errorCatcher(getRefundStudentById));
 
+studentRouter.get("/get-bills-student/:studentId", errorCatcher(getSessionsByStudent));
 module.exports = studentRouter;

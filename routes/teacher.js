@@ -31,7 +31,8 @@ const {
   createDiscount,       deleteDiscount,           updateDiscount,
   getRefundTeacherById,getAllTeachersRating,      createExchangeRequestsTeacher,
   getSessionsByTeacher,
-  availbleTeacher
+  availbleTeacher,
+  PersonalDescription
 } = require("../controllers/teacher");
 const errorCatcher    = require("../middlewares/errorCatcher");
 const verifyToken     = require("../middlewares/verifyToken");
@@ -48,12 +49,12 @@ teacherRouter.post( "/about/:teacherId",  verifyToken,  checkUserAuth("teacher")
 teacherRouter.post( "/image/:teacherId",  verifyToken,  checkUserAuth("teacher"),   errorCatcher(uploadImage));
 teacherRouter.post( "/additionalInfo/:teacherId",verifyToken,checkUserAuth("teacher"),errorCatcher(signAdditionalInfo));
 teacherRouter.post( "/subjects/:teacherId", verifyToken,  checkUserAuth("teacher"), errorCatcher(addSubjects));
-// Developer by eng.reem.shwky@gmail.com
 teacherRouter.post("/setting/:teacherId",  verifyToken,  checkUserAuth("teacher"),  errorCatcher(settingNotification));
 teacherRouter.post("/resume/:teacherId",   verifyToken,  checkUserAuth("teacher"),  errorCatcher(signResume));
 teacherRouter.post("/availability/:teacherId",  verifyToken,  checkUserAuth("teacher"), errorCatcher(signAvailability) );
 teacherRouter.post("/VideoLink/:teacherId",     verifyToken,  checkUserAuth("teacher"), errorCatcher(signVideoLink) );
 teacherRouter.post("/description/:teacherId",verifyToken,checkUserAuth("teacher"),errorCatcher(addDescription));
+teacherRouter.post("/personal-description/:teacherId",verifyToken,checkUserAuth("teacher"),errorCatcher(PersonalDescription));
 teacherRouter.get(  "/getSingleTeacher/:teacherId", errorCatcher(getSingleTeacher)  );
 teacherRouter.put(
   "/resetPassword/:TeacherId",

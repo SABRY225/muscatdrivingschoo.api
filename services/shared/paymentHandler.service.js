@@ -5,7 +5,8 @@ const { sendNotification, sendBookingNotification } = require("./notification.se
 const StudentLecture = require("../../models/StudentLecture");
 const { generateChargeInvoiceEmail } = require("../../utils/EmailBodyGenerator");
 const { addPointsForPurchase } = require("./points.service");
-const { default: fetch } = require("node-fetch");
+const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
+
 
 exports.handleThawaniPaymentCharge = async (data, newPrice, createEntityFn) => {
   const { FRONTEND_URL, THAWANI_KEY, THAWANI_PUBLISHABLE_KEY } = process.env;
@@ -73,6 +74,8 @@ exports.handleThawaniPayment = async (data, newPrice, createEntityFn) => {
   });
 
   const result = await response.json();
+  console.log(result);
+  
   if (result.success && result.code === 2004) {
     const created = await createEntityFn(data);
     global.session_id = result.data.session_id;

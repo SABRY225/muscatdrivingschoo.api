@@ -14,7 +14,8 @@ const {
   StudentTest,            ExchangeRequestsStudent,
   StudentRefund,          Discounts,                StudentDiscount,
   TeacherQuestion,
-  TeacherQuestionChoose
+  TeacherQuestionChoose,
+  SubjectCategory
 } = require("../models");
 const { validateStudent, loginValidation } = require("../validation");
 const { serverErrs } = require("../middlewares/customError");
@@ -1761,8 +1762,120 @@ async function getMyQuestions(req, res) {
     });
   }
 }
+
+const getSessionsByStudent = async (req, res) => {
+  try {
+    const { studentId } = req.params;
+
+    const [sessions, discounts, lectures, packages, tests] = await Promise.all([
+      Session.findAll({
+        where: {
+          StudentId: studentId,
+          type: { [Op.in]: ["Online", "student", "teacher"] },
+          isPaid: true,
+        },
+        attributes: [
+          "id", "title", "date", "period", "type", "price", "currency", "isPaid", "createdAt",
+        ],
+        include: [
+          {
+            model: Teacher,
+            attributes: ["id", "firstName", "lastName", "email", "phone"],
+            include: [
+              {
+                model: TeacherSubject,
+                include: [
+                  {
+                    model: Subject,
+                    include: [{ model: SubjectCategory }],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      }),
+
+      StudentDiscount.findAll({ where: { StudentId: studentId, isPaid: true } }),
+      StudentLecture.findAll({ where: { StudentId: studentId, isPaid: true } }),
+      StudentPackage.findAll({ where: { StudentId: studentId, isPaid: true } }),
+      StudentTest.findAll({ where: { StudentId: studentId, isPaid: true } }),
+    ]);
+
+    // دالة مساعد لجلب بيانات المعلم لأي عنصر فيه TeacherId
+    const attachTeacherData = async (records) => {
+      return await Promise.all(
+        records.map(async (item) => {
+          const data = item.toJSON();
+          if (data.TeacherId) {
+            const teacher = await Teacher.findOne({
+              where: { id: data.TeacherId },
+              attributes: ["id", "firstName", "lastName", "email", "phone"],
+            });
+            return { ...data, Teacher: teacher || null };
+          }
+          return { ...data, Teacher: null };
+        })
+      );
+    };
+
+    // دمجهم بعد إضافة بيانات المعلم إن وجد
+    const [
+      lecturesWithTeacher,
+      packagesWithTeacher,
+      discountsWithTeacher,
+      testsWithTeacher,
+    ] = await Promise.all([
+      attachTeacherData(lectures),
+      attachTeacherData(packages),
+      attachTeacherData(discounts),
+      attachTeacherData(tests),
+    ]);
+
+    // تجميع كل البيانات في مصفوفة واحدة
+    const combinedData = [
+      ...sessions.map((item) => ({ Type: "session", ...item.toJSON() })),
+      ...lecturesWithTeacher.map((item) => ({ Type: "lecture", ...item })),
+      ...packagesWithTeacher.map((item) => ({ Type: "package", ...item })),
+      ...discountsWithTeacher.map((item) => ({ Type: "discount", ...item })),
+      ...testsWithTeacher.map((item) => ({ Type: "test", ...item })),
+    ];
+
+    if (combinedData.length === 0) {
+      return res.status(404).json({
+        status: 404,
+        msg: {
+          arabic: "لا توجد بيانات لهذا الطالب",
+          english: "No data found for this student",
+        },
+      });
+    }
+
+    res.status(200).json({
+      status: 200,
+      data: combinedData,
+      msg: {
+        arabic: "تم جلب البيانات بنجاح",
+        english: "Data fetched successfully",
+      },
+    });
+
+  } catch (error) {
+    console.error("Error fetching student data:", error);
+    res.status(500).json({
+      status: 500,
+      error: error.message,
+      msg: {
+        arabic: "حدث خطأ أثناء جلب البيانات",
+        english: "An error occurred while fetching the data",
+      },
+    });
+  }
+};
+
 module.exports = {
   getLecturesWithQuestions,
+  getSessionsByStudent,
   getMyQuestions,
   createExchangeRequestsStudent,
   signUp,               verifyCode,       signPassword,
