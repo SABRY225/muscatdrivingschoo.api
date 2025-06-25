@@ -44,6 +44,7 @@ const Discounts = require("../models/Discounts");
 const { sendNotification } = require("../services/shared/notification.service");
 const { sendLessonEmail } = require("../utils/sendEmailLessonMeeting");
 const Invite = require("../models/Invite");
+const Evaluations = require("../models/Evaluation");
 dotenv.config();
 let currencyConverter = new CC();
 
@@ -2899,8 +2900,33 @@ const availbleTeacher =async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 }
+const addEvaluations = async(req,res)=>{
+try {
+    const { TeacherId, StudentId, StudentName, certificateDate,teacherSignature, trainingStage } = req.body;
+
+    const evaluation = await Evaluations.create({
+      TeacherId,
+      StudentId,
+      StudentName,
+      certificateDate,
+      trainingStage,
+      teacherSignature,
+    });
+
+    res.status(201).json({
+      msg: {
+        arabic:"تم حفظ التقييم بنجاح",
+        english:"The evaluation was saved successfully."
+      },
+      data: evaluation,
+    });
+  } catch (err) {
+    res.status(500).json({ msg: "حدث خطأ أثناء إنشاء التقييم", error: err.message });
+  }
+}
 
 module.exports = {
+  addEvaluations,
   createExchangeRequestsTeacher,
   availbleTeacher,
   getSessionsByTeacher,
@@ -2912,7 +2938,6 @@ module.exports = {
   getCredit,            getTeacherFinancial,    updateNotification,
   getTeacherRate,       acceptLesson,           endLesson,
   getMyStudents,        requestCheckout,        getProfitRatio,
-  //Developer by eng.reem.shwky@gmail.com
   getNumbers,
   getAllCertificates,
   updateTeacherCertificates,
@@ -2920,7 +2945,6 @@ module.exports = {
   createLecture,          getLectureByTeacherId,    deleteLecture,      updateLecture,      getSingleLecture,
   createLesson,           getLessonByTeacherId,     getSingleLesson,    updateLesson,       deleteLesson,
   updateLogout,
-
   getPackageByTeacherId,  getSinglePackage,         createPackage,
   deletePackage,          updatePackage,            getPackageAcceptByTeacherId,
   getPackageAccept,       getAllTeachers,           

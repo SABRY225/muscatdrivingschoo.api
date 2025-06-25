@@ -60,6 +60,7 @@ const StudentRefund           = require("./StudentRefund");
 const TeacherRefund           = require("./TeacherRefund");
 const Guest                   = require("./Guest");
 const WhatsData               = require("./WhatsData");
+const Evaluations = require("./Evaluation");
 
 Teacher.hasMany(LangTeachStd);
 LangTeachStd.belongsTo(Teacher);
@@ -92,7 +93,8 @@ TeacherDay.belongsTo(Days);
 // Conversation.belongsTo(Student);
 // Conversation.hasMany(Message);
 // Message.belongsTo(Conversation);
-
+Evaluations.belongsTo(Teacher, { foreignKey: "TeacherId" });
+Teacher.hasMany(Evaluations, { foreignKey: "TeacherId" });
 
 Teacher.hasOne(F2FSessionStd);
 F2FSessionStd.belongsTo(Teacher);

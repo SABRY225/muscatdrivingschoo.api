@@ -46,6 +46,7 @@ const { sendWhatsAppTemplate } = require("../utils/whatsapp");
 const StudentLecture = require("../models/StudentLecture");
 const { sendNotification } = require("../services/shared/notification.service");
 const { sendLessonEmail } = require("../utils/sendEmailLessonMeeting");
+const Evaluations = require("../models/Evaluation");
 dotenv.config();
 
 const signUp = async (req, res) => {
@@ -1872,8 +1873,32 @@ const getSessionsByStudent = async (req, res) => {
     });
   }
 };
+const getEvaluationsByStudent = async (req, res) => {
+  try {
+    const { StudentId } = req.params;
 
+    const evaluations = await Evaluations.findAll({
+      where: { StudentId },
+      order: [["certificateDate", "DESC"]],
+      include: [
+        {
+          model: Teacher,
+          attributes: ["id", "firstName", "lastName", "email", "phone"],
+        },
+      ],
+    });
+
+    res.status(200).json({
+      msg: "تم جلب التقييمات بنجاح",
+      data: evaluations,
+    });
+  } catch (err) {
+    console.error("❌ Error fetching evaluations:", err);
+    res.status(500).json({ msg: "حدث خطأ أثناء جلب التقييمات", error: err.message });
+  }
+};
 module.exports = {
+  getEvaluationsByStudent,
   getLecturesWithQuestions,
   getSessionsByStudent,
   getMyQuestions,

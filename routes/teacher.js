@@ -32,7 +32,8 @@ const {
   getRefundTeacherById,getAllTeachersRating,      createExchangeRequestsTeacher,
   getSessionsByTeacher,
   availbleTeacher,
-  PersonalDescription
+  PersonalDescription,
+  addEvaluations
 } = require("../controllers/teacher");
 const errorCatcher    = require("../middlewares/errorCatcher");
 const verifyToken     = require("../middlewares/verifyToken");
@@ -139,4 +140,5 @@ teacherRouter.get("/refunds/:TeacherId",      errorCatcher(getRefundTeacherById)
 
 teacherRouter.get("/get-bills-teacher/:teacherId", errorCatcher(getSessionsByTeacher));
 teacherRouter.get("/:id/days", errorCatcher(availbleTeacher));
+teacherRouter.post("/evaluations", errorCatcher(addEvaluations));
 module.exports = teacherRouter;
