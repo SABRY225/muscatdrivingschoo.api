@@ -25,6 +25,7 @@ const paymentRouter   = require("./payment");
 const {forgetPassword,verifyCodeForgottenPassword,editForgottenPassword,} = require("../middlewares/forgetPassword");
 const currencyRouter = require("./currency");
 const { getHomeData } = require("../middlewares/allservices");
+const chatMessageRouter = require("./chatMessage");
 router.use("/admin",    adminRouter);
 router.use("/teacher",  teacherRouter);
 router.use("/guest" ,   guestRouter);
@@ -46,5 +47,6 @@ router.use("/lesson", lessonRouter);
 router.use("/notification", notificationRouter);
 router.use("/message", messagerouter);
 router.get("/dashboard/counts", getCounts);
+router.use("/chat", chatMessageRouter);
 
 module.exports = router;

@@ -9,6 +9,9 @@ const cors = require("cors");
 const multer = require("multer");
 const path = require("path");
 const Notifications = require("./firebaseConfig");
+const ChatMessage = require("./models/ChatMessage");
+const Notification = require("./models/Notification");
+const { Op } = require("sequelize");
 
 dotenv.config();
 const app = express();
@@ -56,4 +59,32 @@ app.use("/api/v1", router);
 app.use(clientError);
 app.use(serverError);
 
+async function checkUnreadMessages() {
+  const tenMinutesAgo = new Date(Date.now() - 3 * 60 * 1000); // قبل 3 دقائق
+
+  const unreadMessages = await ChatMessage.findAll({
+      where: {
+          seen: false,
+          isNotified: false, // لم يتم إرسال إشعار عنها
+          createdAt: { [Op.lt]: tenMinutesAgo }, 
+      },
+  });
+
+  unreadMessages.forEach(async (message) => {
+      await Notification.create({
+          userId: message.receiverId,
+          userType: "student",
+          type: "chat_message",
+          messageAr: "لديك رسالة غير مقروءة!",
+          messageEn: "You have an unread message!",
+      });
+
+      // تحديث الرسالة انه تم إرسال الإشعار عليها
+      await message.update({ isNotified: true });
+  });
+}
+
+
+// فحص الرسائل غير المقروءة كل 5 دقائق
+setInterval(checkUnreadMessages, 3 * 60 * 1000);
 module.exports = app;
