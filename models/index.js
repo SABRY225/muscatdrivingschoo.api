@@ -54,6 +54,7 @@ const ExchangeRequestsStudent = require("./ExchangeRequestsStudent");
 const StudentTest             = require("./StudentTest");
 const AdsDepartment           = require("./AdsDepartment");
 const Ads                     = require("./Ads");
+const AdsTeachers                     = require("./AdsTeachers");
 const AdsImages               = require("./AdsImages");
 const Discounts               = require("./Discounts");
 const StudentRefund           = require("./StudentRefund");
@@ -243,15 +244,24 @@ TeacherRefund.belongsTo(Admin);
 
 Guest.hasMany(Career);
 Career.belongsTo(Guest);
+Teacher.hasMany(Career);
+Career.belongsTo(Teacher);
 
 Guest.hasMany(Ads);
 Ads.belongsTo(Guest);
+Teacher.hasMany(AdsTeachers);
+AdsTeachers.belongsTo(Teacher);
 
 AdsDepartment.hasMany(Ads);
 Ads.belongsTo(AdsDepartment);
+AdsDepartment.hasMany(AdsTeachers);
+AdsTeachers.belongsTo(AdsDepartment);
 
 Ads.hasMany(AdsImages);
 AdsImages.belongsTo(Ads);
+
+AdsTeachers.hasMany(AdsImages);
+AdsImages.belongsTo(AdsTeachers);
 
 module.exports = {
   Admin,
@@ -266,8 +276,6 @@ module.exports = {
   Curriculum,         Certificates,       CurriculumLevel,
   CurriculumTeacher,  LanguageLevel,      FinancialRecord,
   Rate,               SocialMedia,        CheckoutRequest,
-
-  // Developer By eng.reem.shwky@gmail.com
   TrainingCategoryType,     LimeType,
   TeacherTypes,             TeacherLimits,
   TeacherLecture,           TeacherLesson,          
@@ -278,5 +286,5 @@ module.exports = {
   ExchangeRequestsParent,   ExchangeRequestsStudent,  ExchangeRequestsTeacher,
   StudentTest,              Ads,                      AdsDepartment,
   Discounts,                StudentRefund,            TeacherRefund,       
-  AdsImages,                StudentDiscount,          WhatsData,
+  AdsImages,                StudentDiscount,          WhatsData,AdsTeachers
 };

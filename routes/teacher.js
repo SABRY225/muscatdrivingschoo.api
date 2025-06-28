@@ -38,6 +38,8 @@ const {
 const errorCatcher    = require("../middlewares/errorCatcher");
 const verifyToken     = require("../middlewares/verifyToken");
 const checkUserAuth   = require("../middlewares/checkUserAuth");
+const { getCareerByGuest, createCareer, deleteCareer, updateCareer, createCareerStepOne, createCareerStepTwo } = require("../controllers/careerController");
+const { createAdsTeachersStepOne, createAdsTeachersStepTwo, createAdsTeachersStepThree, createAdsTeachersStepFour, getAdsTeachersSingle, getAdsTeachersAll, getAdsImagesByAdsTeachersId, deleteAdsTeachers } = require("../controllers/adsController");
 
 teacherRouter.post("/signup", errorCatcher(signUp));
 teacherRouter.post("/signup/code", errorCatcher(verifyCode));
@@ -141,4 +143,33 @@ teacherRouter.get("/refunds/:TeacherId",      errorCatcher(getRefundTeacherById)
 teacherRouter.get("/get-bills-teacher/:teacherId", errorCatcher(getSessionsByTeacher));
 teacherRouter.get("/:id/days", errorCatcher(availbleTeacher));
 teacherRouter.post("/evaluations", errorCatcher(addEvaluations));
+
+
+
+// ----------------------
+// Career Routes
+// ----------------------
+
+teacherRouter.get("/careers/:TeacherId", errorCatcher(getCareerByGuest));
+teacherRouter.post("/career",  errorCatcher(createCareer));
+teacherRouter.delete("/career/:careerId", errorCatcher(deleteCareer));
+teacherRouter.put("/career/:careerId", errorCatcher(updateCareer) );
+
+teacherRouter.post("/career-step-one/:TeacherId",errorCatcher(createCareerStepOne) );
+teacherRouter.put("/career-step-two/:CareerId", errorCatcher(createCareerStepTwo) );
+
+// ----------------------
+// Ads Routes
+// ----------------------
+
+teacherRouter.post("/ads-step-one/:TeacherId", errorCatcher(createAdsTeachersStepOne));
+teacherRouter.post("/ads-step-two/:AdsId",  errorCatcher(createAdsTeachersStepTwo));
+teacherRouter.put("/ads-step-three/:AdsId", errorCatcher(createAdsTeachersStepThree));
+teacherRouter.put("/ads-step-four/:AdsId", errorCatcher(createAdsTeachersStepFour));
+
+teacherRouter.get("/ads-single/:AdsId", errorCatcher(getAdsTeachersSingle));
+teacherRouter.get("/ads-all/:TeacherId", errorCatcher(getAdsTeachersAll));
+teacherRouter.get("/ads-images/:AdsId", errorCatcher(getAdsImagesByAdsTeachersId));
+teacherRouter.delete("/ads/:AdsId", errorCatcher(deleteAdsTeachers));
+
 module.exports = teacherRouter;

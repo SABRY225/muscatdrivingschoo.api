@@ -3,12 +3,17 @@ const { handleThawaniPayment, handleWalletPayment } = require("../shared/payment
 
 exports.book = async (data) => {
   const { price, typeOfPayment } = data;
+
   if (price < 0.1) {
     throw new Error("Total price must be greater than 0.1 OMR");
   }
+
+  // إضافة totalPrice إلى البيانات
+  const updatedData = { ...data, totalPrice: price };
+
   if (typeOfPayment === "thawani") {
-    return await handleThawaniPayment(data, price, createSession);
+    return await handleThawaniPayment(updatedData, price, createSession);
   } else if (typeOfPayment === "wallet") {
-    return await handleWalletPayment(data, price, createSession, "lesson_booking");
+    return await handleWalletPayment(updatedData, price, createSession, "lesson_booking");
   }
 };

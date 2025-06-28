@@ -794,35 +794,33 @@ const rejectTeacher = async (req, res) => {
   });
 };
 
+
 const getWaitingTeacher = async (req, res) => {
   const teachers = await Teacher.findAll({
     where: {
-      isVerified: false,
-      firstName: { [Op.gt]: "" },
-      lastName: { [Op.gt]: "" },
-      // phone: { [Op.gt]: "" },
-      gender: { [Op.gt]: "" },
-      image: { [Op.gt]: "" },
-      dateOfBirth: { [Op.gt]: "" },
-      country: { [Op.gt]: "" },
-      city: { [Op.gt]: "" },
-      favStdGender: { [Op.gt]: "" },
-      favhours: { [Op.gt]: "" },
-      // shortHeadlineAr: { [Op.gt]: "" },
-      // shortHeadlineEn: { [Op.gt]: "" },
-      descriptionAr: { [Op.gt]: "" },
-      // descriptionEn: { [Op.gt]: "" },
+      isVerified: 0,
+      firstName: { [Op.ne]: "" },
+      lastName: { [Op.ne]: "" },
+      phone: { [Op.ne]: "" },
+      gender: { [Op.ne]: "" },
+      image: { [Op.ne]: "" },
+      dateOfBirth: { [Op.ne]: "" },
+      country: { [Op.ne]: "" },
+      city: { [Op.ne]: "" },
+      descriptionAr: { [Op.ne]: "" },
     },
   });
+
   res.send({
     status: 201,
     data: teachers,
     msg: {
       arabic: "تم ارجاع جميع المدربين غير المقبولين بعد",
-      english: "successful get all waiting trainers",
+      english: "Successfully fetched waiting trainers",
     },
   });
 };
+
 
 const getLanguageLevel = async (req, res) => {
   const languageLevels = await LanguageLevel.findAll();
