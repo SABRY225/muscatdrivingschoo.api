@@ -41,7 +41,12 @@ const {
 const { sendWhatsAppTemplate } = require("../utils/whatsapp");
 const sendWhatsAppVerificationCode = require("../utils/sendWhatsAppVerificationCode");
 const Discounts = require("../models/Discounts");
-const { sendNotification } = require("../services/shared/notification.service");
+const {
+  sendNotification,
+  sendBookingNotification,
+  sendLessonNotification,
+  sendGeneralNotification,
+} = require("../services/shared/notification.service");
 const { sendLessonEmail } = require("../utils/sendEmailLessonMeeting");
 const Invite = require("../models/Invite");
 const Evaluations = require("../models/Evaluation");
@@ -230,13 +235,28 @@ const signPassword = async (req, res, next) => {
 
     sendEmail(mailOptions, smsOptions);
 
-    await sendWhatsAppTemplate({
-      to: teacher.phone,
-      templateName: "hello_user",
-      variables: [teacher.firstName + " " + teacher.lastName || "المعلم"],
-      language: language === "ar" ? "ar" : "en_US",
-      recipientName: teacher.firstName + " " + teacher.lastName || "المعلم",
-    });
+    try {
+      const { VERIFICATION_TEMPLATES } = require("../config/whatsapp-templates");
+      const templateName = language === "ar"
+        ? VERIFICATION_TEMPLATES.WELCOME_TEACHER_AR
+        : VERIFICATION_TEMPLATES.WELCOME_TEACHER_EN;
+      const result = await sendWhatsAppTemplate({
+        to: teacher.phone,
+        templateName,
+        variables: [teacher.firstName + " " + teacher.lastName || "المعلم"],
+        language: language === "ar" ? "ar" : "en_US",
+        recipientName: teacher.firstName + " " + teacher.lastName || "المعلم",
+        messageType: "welcome",
+        fallbackToEnglish: true,
+      });
+      if (result.success) {
+        console.log("✅ تم إرسال رسالة الترحيب للمعلم بنجاح");
+      } else {
+        console.error(`❌ فشل إرسال رسالة الترحيب للمعلم: ${result.error}`);
+      }
+    } catch (err) {
+      console.error("❌ خطأ أثناء إرسال رسالة الترحيب للمعلم عبر واتساب:", err.message);
+    }
 
     res.status(201).json({
       data: teacher.toJSON(),
@@ -299,6 +319,29 @@ const signAbout = async (req, res) => {
   const firstNames = teacher.firstName;
   const lastNames = teacher.lastName;
 
+  // إرسال إشعار واتساب عند تعديل البيانات الشخصية للمعلم
+  try {
+    // رسالة اكتمال التسجيل
+    const completeTemplate = teacher.language === "ar" ? PAYMENT_TEMPLATES.TEACHER_REGISTRATION_COMPLETE_AR : PAYMENT_TEMPLATES.TEACHER_REGISTRATION_COMPLETE_EN;
+    await sendWhatsAppTemplate({
+      to: teacher.phone,
+      templateName: completeTemplate,
+      variables: [teacher.firstName + " " + teacher.lastName || "المعلم"],
+      language: completeTemplate.includes("_ar") ? "ar" : "en_US",
+      recipientName: teacher.firstName + " " + teacher.lastName || "المعلم"
+    });
+    // رسالة الترحيب عند التسجيل الجديد
+    const welcomeTemplate = teacher.language === "ar" ? PAYMENT_TEMPLATES.WELCOME_TEACHER_AR : PAYMENT_TEMPLATES.WELCOME_TEACHER_EN;
+    await sendWhatsAppTemplate({
+      to: teacher.phone,
+      templateName: welcomeTemplate,
+      variables: [teacher.firstName + " " + teacher.lastName || "المعلم"],
+      language: welcomeTemplate.includes("_ar") ? "ar" : "en_US",
+      recipientName: teacher.firstName + " " + teacher.lastName || "المعلم"
+    });
+  } catch (err) {
+    console.error("خطأ إرسال واتساب (تسجيل/ترحيب):", err.message);
+  }
   res.send({
     status: 201,
     data: { firstName: firstNames, lastName: lastNames },
@@ -1364,6 +1407,18 @@ const endLesson = async (req, res) => {
       Student.findByPk(session.StudentId),
       Teacher.findByPk(session.TeacherId),
     ]);
+
+    // إرسال رسالة واتساب عند إنهاء الدرس
+    await sendLessonNotification({
+      type: "lesson_ended",
+      student,
+      teacher,
+      language: lang,
+      lessonDetails: {
+        date: session.date || new Date().toLocaleDateString("ar-EG"),
+        time: session.period || new Date().toLocaleTimeString("ar-EG"),
+      },
+    });
 
     const message = lang === "ar" ? "انتهى الدرس الآن." : "The lesson is now finished.";
 

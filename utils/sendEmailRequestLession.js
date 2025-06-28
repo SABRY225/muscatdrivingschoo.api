@@ -2,6 +2,17 @@
 const dotenv = require("dotenv");
 dotenv.config();
 
+const nodemailer = require("nodemailer");
+const transporter = nodemailer.createTransport({
+  host: "premium174.web-hosting.com",
+  port: 465,
+  secure: true,
+  auth: {
+    user: process.env.APP_EMAIL,
+    pass: process.env.APP_EMAIL_PASSWORD,
+  },
+});
+
 const sendEmailRequest = async (email, lang, message) => {
   try {
     const mailOptions = {

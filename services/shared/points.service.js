@@ -20,7 +20,7 @@ const addPointsForPurchase = async ({ studentId, teacherId }) => {
       await Invite.create({
         userId,
         amountPoints: 3,
-        link: null, // optional
+        link: '', // اجعلها نص فارغ وليس null
       });
     }
   };
