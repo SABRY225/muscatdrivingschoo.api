@@ -672,6 +672,29 @@ const acceptStudent = async (req, res) => {
     include: { all: true },
   });
   await student.update({ ParentId: parentStudent.ParentId });
+  // إشعار واتساب للطالب المقبول
+  try {
+    const { VERIFICATION_TEMPLATES } = require("../config/whatsapp-templates");
+    const templateName = language === "ar"
+      ? VERIFICATION_TEMPLATES.WELCOME_STUDENT_AR
+      : VERIFICATION_TEMPLATES.WELCOME_STUDENT_EN;
+    const result = await sendWhatsAppTemplate({
+      to: student.phoneNumber,
+      templateName,
+      variables: [student.name],
+      language: language === "ar" ? "ar" : "en_US",
+      recipientName: student.name,
+      messageType: "accept",
+      fallbackToEnglish: true,
+    });
+    if (result.success) {
+      console.log("✅ تم إرسال إشعار قبول الطالب بنجاح");
+    } else {
+      console.error(`❌ فشل إرسال إشعار قبول الطالب: ${result.error}`);
+    }
+  } catch (err) {
+    console.error("❌ خطأ أثناء إرسال إشعار قبول الطالب عبر واتساب:", err.message);
+  }
   res.send({
     status: 201,
     msg: {
@@ -694,6 +717,32 @@ const rejectStudent = async (req, res) => {
     });
 
   await parentStudent.update({ status: -1 });
+  // إشعار واتساب للطالب المرفوض
+  try {
+    const student = await Student.findOne({ where: { id: parentStudent.StudentId } });
+    if (student && student.phoneNumber) {
+      const { VERIFICATION_TEMPLATES } = require("../config/whatsapp-templates");
+      const templateName = language === "ar"
+        ? VERIFICATION_TEMPLATES.REJECT_STUDENT_AR
+        : VERIFICATION_TEMPLATES.REJECT_STUDENT_EN;
+      const result = await sendWhatsAppTemplate({
+        to: student.phoneNumber,
+        templateName,
+        variables: [student.name],
+        language: language === "ar" ? "ar" : "en_US",
+        recipientName: student.name,
+        messageType: "reject",
+        fallbackToEnglish: true,
+      });
+      if (result.success) {
+        console.log("✅ تم إرسال إشعار رفض الطالب بنجاح");
+      } else {
+        console.error(`❌ فشل إرسال إشعار رفض الطالب: ${result.error}`);
+      }
+    }
+  } catch (err) {
+    console.error("❌ خطأ أثناء إرسال إشعار رفض الطالب عبر واتساب:", err.message);
+  }
   res.send({
     status: 201,
     msg: {
@@ -748,6 +797,28 @@ const acceptTeacher = async (req, res) => {
 
   await teacher.update({ isVerified: true });
 
+  try {
+    const { VERIFICATION_TEMPLATES } = require("../config/whatsapp-templates");
+    const templateName = language === "ar"
+      ? VERIFICATION_TEMPLATES.WELCOME_TEACHER_AR
+      : VERIFICATION_TEMPLATES.WELCOME_TEACHER_EN;
+    const result = await sendWhatsAppTemplate({
+      to: teacher.phone,
+      templateName,
+      variables: [teacher.firstName + " " + teacher.lastName || teacher.name || "المعلم"],
+      language: language === "ar" ? "ar" : "en_US",
+      recipientName: teacher.firstName + " " + teacher.lastName || teacher.name || "المعلم",
+      messageType: "accept",
+      fallbackToEnglish: true,
+    });
+    if (result.success) {
+      console.log("✅ تم إرسال إشعار قبول المعلم بنجاح");
+    } else {
+      console.error(`❌ فشل إرسال إشعار قبول المعلم: ${result.error}`);
+    }
+  } catch (err) {
+    console.error("❌ خطأ أثناء إرسال إشعار قبول المعلم عبر واتساب:", err.message);
+  }
   res.send({
     status: 201,
     data: teacher,
@@ -788,6 +859,31 @@ const rejectTeacher = async (req, res) => {
     },
   });
 
+  // إشعار واتساب للمدرب المرفوض
+  try {
+    if (teacher && teacher.phone) {
+      const { VERIFICATION_TEMPLATES } = require("../config/whatsapp-templates");
+      const templateName = language === "ar"
+        ? VERIFICATION_TEMPLATES.REJECT_TEACHER_AR
+        : VERIFICATION_TEMPLATES.REJECT_TEACHER_EN;
+      const result = await sendWhatsAppTemplate({
+        to: teacher.phone,
+        templateName,
+        variables: [teacher.firstName + " " + teacher.lastName || teacher.name || "المعلم"],
+        language: language === "ar" ? "ar" : "en_US",
+        recipientName: teacher.firstName + " " + teacher.lastName || teacher.name || "المعلم",
+        messageType: "reject",
+        fallbackToEnglish: true,
+      });
+      if (result.success) {
+        console.log("✅ تم إرسال إشعار رفض المعلم بنجاح");
+      } else {
+        console.error(`❌ فشل إرسال إشعار رفض المعلم: ${result.error}`);
+      }
+    }
+  } catch (err) {
+    console.error("❌ خطأ أثناء إرسال إشعار رفض المعلم عبر واتساب:", err.message);
+  }
   res.send({
     status: 201,
     msg: { arabic: "تم رفض المدرب", english: "Rejected trainer successfully" },

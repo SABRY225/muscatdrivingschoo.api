@@ -13,7 +13,7 @@ exports.charge = async (req, res) => {
     const response = await chargeService.book(req.body);
     res.status(201).send(response);
   } catch (err) {
-    res.status(err.status || 500).send({ error: err.message });
+    res.status(err.status || 500).send({ msg: err.message || "حدث خطأ ما" });
   }
 };
 
@@ -22,7 +22,7 @@ exports.booking = async (req, res) => {
     const response = await bookingService.book(req.body);
     res.status(201).send(response);
   } catch (err) {
-    res.status(err.status || 500).send({ error: err.message });
+    res.status(err.status || 500).send({ msg: err.message || "حدث خطأ ما" });
   }
 };
 
@@ -31,7 +31,7 @@ exports.bookingTest = async (req, res) => {
     const response = await testBookingService.book(req.body);
     res.status(201).send(response);
   } catch (err) {
-    res.status(err.status || 500).send({ error: err.message });
+    res.status(err.status || 500).send({ msg: err.message || "حدث خطأ ما" });
   }
 };
 
@@ -40,7 +40,7 @@ exports.bookingDiscount = async (req, res) => {
     const response = await discountBookingService.book(req.body);
     res.status(201).send(response);
   } catch (err) {
-    res.status(err.status || 500).send({ error: err.message });
+    res.status(err.status || 500).send({ msg: err.message || "حدث خطأ ما" });
   }
 };
 
@@ -49,7 +49,7 @@ exports.bookingLecture = async (req, res) => {
     const response = await lectureBookingService.book(req.body);
     res.status(201).send(response);
   } catch (err) {
-    res.status(err.status || 500).send({ error: err.message });
+    res.status(err.status || 500).send({ msg: err.message || "حدث خطأ ما" });
   }
 };
 
@@ -58,7 +58,7 @@ exports.bookingPackage = async (req, res) => {
     const response = await packageBookingService.book(req.body);
     res.status(201).send(response);
   } catch (err) {
-    res.status(err.status || 500).send({ error: err.message });
+    res.status(err.status || 500).send({ msg: err.message || "حدث خطأ ما" });
   }
 };
 
@@ -67,7 +67,7 @@ exports.checkoutSuccess = async (req, res) => {
     const response = await chargeSuccess.confirmePaymentCharge(req.body);
     res.status(201).send(response);
   } catch (err) {
-    res.status(err.status || 500).send({ error: err.message });
+    res.status(err.status || 500).send({ msg: err.message || "حدث خطأ ما" });
   }
 };
 
@@ -76,6 +76,6 @@ exports.bookingSuccess = async (req, res) => {
     const response = await bookingSuccess.confirmePayment(req.body);
     res.status(201).send(response);
   } catch (err) {
-    res.status(err.status || 500).send({ error: err.message });
+    res.status(err.status || 500).send({ msg: err.message || "حدث خطأ ما" });
   }
 };

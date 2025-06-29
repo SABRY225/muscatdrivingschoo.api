@@ -44,7 +44,12 @@ const {
 const sendWhatsAppVerificationCode = require("../utils/sendWhatsAppVerificationCode");
 const { sendWhatsAppTemplate } = require("../utils/whatsapp");
 const StudentLecture = require("../models/StudentLecture");
-const { sendNotification } = require("../services/shared/notification.service");
+const {
+  sendNotification,
+  sendBookingNotification,
+  sendLessonNotification,
+  sendGeneralNotification,
+} = require("../services/shared/notification.service");
 const { sendLessonEmail } = require("../utils/sendEmailLessonMeeting");
 const Evaluations = require("../models/Evaluation");
 dotenv.config();
@@ -116,11 +121,15 @@ const signUp = async (req, res) => {
     to: phoneNumber,
   };
   sendEmail(mailOptions, smsOptions);
-   await sendWhatsAppVerificationCode(
-  phoneNumber,    // رقم الهاتف
-  code,           // كود التحقق
-  language        // اللغة (ar أو en_US)
-);
+   try {
+    await sendWhatsAppVerificationCode(
+      phoneNumber,    // رقم الهاتف
+      code,           // كود التحقق
+      language        // اللغة (ar أو en_US)
+    );
+  } catch (err) {
+    console.error('خطأ أثناء إرسال رسالة واتساب كود التأكيد:', err.message, err);
+  }
 
   res.send({
     status: 201,
@@ -128,6 +137,10 @@ const signUp = async (req, res) => {
   });
   //res.send({ status: 201, msg: "successful send email" });
 };
+
+// إرسال رسالة ترحيبية عبر واتساب بعد التسجيل النهائي (عند تعيين كلمة المرور)
+// مضاف فعلياً في signPassword
+
 
 const verifyCode = async (req, res) => {
   const { registerCode, email, long, lat } = req.body;
@@ -229,14 +242,31 @@ const signPassword = async (req, res) => {
   };
   sendEmail(mailOptions, smsOptions);
 
-// بعد تسجيل الطالب بنجاح
-await sendWhatsAppTemplate({
-  to: student.phoneNumber,
-  templateName: "hello_user",
-  variables: [student.name || "student"],
-  language: language === "ar" ? "ar" : "en_US",
-  recipientName: student.name || "student"
-});
+  // إرسال رسالة ترحيبية بعد التسجيل بنجاح بنفس منطق mb
+  try {
+    const { VERIFICATION_TEMPLATES } = require("../config/whatsapp-templates");
+    const templateName = language === "ar"
+      ? VERIFICATION_TEMPLATES.WELCOME_STUDENT_AR
+      : VERIFICATION_TEMPLATES.WELCOME_STUDENT_EN;
+
+    const result = await sendWhatsAppTemplate({
+      to: student.phoneNumber,
+      templateName,
+      variables: [student.name||"الطالب"],
+      language: language === "ar" ? "ar" : "en_US",
+      recipientName: student.name,
+      messageType: "welcome",
+      fallbackToEnglish: true,
+    });
+
+    if (result.success) {
+      console.log("✅ تم إرسال رسالة الترحيب بنجاح");
+    } else {
+      console.error(`❌ فشل إرسال رسالة الترحيب: ${result.error}`);
+    }
+  } catch (err) {
+    console.error("❌ خطأ أثناء إرسال رسالة الترحيب عبر واتساب:", err.message);
+  }
 
   student = {
     id: student.id,
@@ -272,6 +302,9 @@ await sendWhatsAppTemplate({
     token: token,
   });
 };
+
+// إرسال إشعار واتساب عند تعديل بيانات الطالب الشخصية
+
 
 const signData = async (req, res) => {
   const { email, gender, levelId, curriculumId, classId } = req.body;
@@ -469,6 +502,18 @@ const editPersonalInformation = async (req, res) => {
     );
   }
 
+  // إرسال إشعار واتساب عند تعديل البيانات الشخصية
+  try {
+    await sendWhatsAppTemplate({
+      to: student.phoneNumber,
+      templateName: "profile_completed",
+      variables: [student.name || "student"],
+      language: "ar", // أو استخدم لغة الطالب إذا متوفرة
+      recipientName: student.name || "student"
+    });
+  } catch (err) {
+    console.error('❌ فشل إرسال رسالة الترحيب:', err);
+  }
   res.send({
     status: 201,
     msg: {
@@ -975,6 +1020,18 @@ const startLesson = async (req, res) => {
       Student.findByPk(StudentId),
       Teacher.findByPk(session.TeacherId),
     ]);
+
+    // إرسال رسالة واتساب عند بدء الدرس
+    await sendLessonNotification({
+      type: "lesson_started",
+      student,
+      teacher,
+      language: lang,
+      lessonDetails: {
+        date: session.date || new Date().toLocaleDateString("ar-EG"),
+        time: session.period || new Date().toLocaleTimeString("ar-EG"),
+      },
+    });
 
     const message = lang === "ar" ? "تم بدء الدرس الان" : "The lesson has started now";
 
@@ -1897,7 +1954,75 @@ const getEvaluationsByStudent = async (req, res) => {
     res.status(500).json({ msg: "حدث خطأ أثناء جلب التقييمات", error: err.message });
   }
 };
+
+const checkStudentSubscription = async (req, res) => {
+  try {
+    const { StudentId, type } = req.params;
+
+    if (!StudentId || !type) {
+      return res.status(400).json({
+        status: 400,
+        msg: {
+          arabic: "الطالب أو نوع الاشتراك غير موجود",
+          english: "Student ID or subscription type is missing",
+        },
+      });
+    }
+
+    let model;
+
+    switch (type) {
+      case "lecture":
+        model = StudentLecture;
+        break;
+      case "test":
+        model = StudentTest;
+        break;
+      case "discount":
+        model = StudentDiscount;
+        break;
+      case "package":
+        model = StudentPackage;
+        break;
+      case "teacherLecture":
+        model = TeacherLecture;
+        break;
+      default:
+        return res.status(400).json({
+          status: 400,
+          msg: {
+            arabic: "نوع الاشتراك غير صالح",
+            english: "Invalid subscription type",
+          },
+        });
+    }
+
+    const subscription = await model.findOne({
+      where: { StudentId },
+    });
+
+    return res.status(200).json({
+      status: 200,
+      subscription: subscription ? true : false,
+      msg: {
+        arabic: subscription ? "لقد قمت بحجزها من قبل " : "الطالب غير مشترك",
+        english: subscription ? "I have already booked it." : "Student is not subscribed",
+      },
+    });
+
+  } catch (error) {
+    console.error("Error checking subscription:", error);
+    return res.status(500).json({
+      status: 500,
+      msg: {
+        arabic: "حدث خطأ أثناء التحقق من الاشتراك",
+        english: "An error occurred while checking subscription",
+      },
+    });
+  }
+};
 module.exports = {
+  checkStudentSubscription,
   getEvaluationsByStudent,
   getLecturesWithQuestions,
   getSessionsByStudent,
@@ -1915,7 +2040,6 @@ module.exports = {
   acceptLesson,         startLesson,
   nearestTeachers,      getMyTeachers,
   getFinancialRecords,  updateNotification,
-  // Develoepr By eng.reem.shwky@gmail.com
   settingNotification,      getParentsByStudentId,
   updateLogout,             bookLecture,          bookPackage,
   bookTest,                 getStudentTests,      getStudentLectures,

@@ -41,7 +41,12 @@ const {
 const { sendWhatsAppTemplate } = require("../utils/whatsapp");
 const sendWhatsAppVerificationCode = require("../utils/sendWhatsAppVerificationCode");
 const Discounts = require("../models/Discounts");
-const { sendNotification } = require("../services/shared/notification.service");
+const {
+  sendNotification,
+  sendBookingNotification,
+  sendLessonNotification,
+  sendGeneralNotification,
+} = require("../services/shared/notification.service");
 const { sendLessonEmail } = require("../utils/sendEmailLessonMeeting");
 const Invite = require("../models/Invite");
 const Evaluations = require("../models/Evaluation");
@@ -230,13 +235,28 @@ const signPassword = async (req, res, next) => {
 
     sendEmail(mailOptions, smsOptions);
 
-    await sendWhatsAppTemplate({
-      to: teacher.phone,
-      templateName: "hello_user",
-      variables: [teacher.firstName + " " + teacher.lastName || "المعلم"],
-      language: language === "ar" ? "ar" : "en_US",
-      recipientName: teacher.firstName + " " + teacher.lastName || "المعلم",
-    });
+    try {
+      const { VERIFICATION_TEMPLATES } = require("../config/whatsapp-templates");
+      const templateName = language === "ar"
+        ? VERIFICATION_TEMPLATES.WELCOME_TEACHER_AR
+        : VERIFICATION_TEMPLATES.WELCOME_TEACHER_EN;
+      const result = await sendWhatsAppTemplate({
+        to: teacher.phone,
+        templateName,
+        variables: [teacher.firstName + " " + teacher.lastName || "المعلم"],
+        language: language === "ar" ? "ar" : "en_US",
+        recipientName: teacher.firstName + " " + teacher.lastName || "المعلم",
+        messageType: "welcome",
+        fallbackToEnglish: true,
+      });
+      if (result.success) {
+        console.log("✅ تم إرسال رسالة الترحيب للمعلم بنجاح");
+      } else {
+        console.error(`❌ فشل إرسال رسالة الترحيب للمعلم: ${result.error}`);
+      }
+    } catch (err) {
+      console.error("❌ خطأ أثناء إرسال رسالة الترحيب للمعلم عبر واتساب:", err.message);
+    }
 
     res.status(201).json({
       data: teacher.toJSON(),
@@ -299,6 +319,29 @@ const signAbout = async (req, res) => {
   const firstNames = teacher.firstName;
   const lastNames = teacher.lastName;
 
+  // إرسال إشعار واتساب عند تعديل البيانات الشخصية للمعلم
+  try {
+    // رسالة اكتمال التسجيل
+    const completeTemplate = teacher.language === "ar" ? PAYMENT_TEMPLATES.TEACHER_REGISTRATION_COMPLETE_AR : PAYMENT_TEMPLATES.TEACHER_REGISTRATION_COMPLETE_EN;
+    await sendWhatsAppTemplate({
+      to: teacher.phone,
+      templateName: completeTemplate,
+      variables: [teacher.firstName + " " + teacher.lastName || "المعلم"],
+      language: completeTemplate.includes("_ar") ? "ar" : "en_US",
+      recipientName: teacher.firstName + " " + teacher.lastName || "المعلم"
+    });
+    // رسالة الترحيب عند التسجيل الجديد
+    const welcomeTemplate = teacher.language === "ar" ? PAYMENT_TEMPLATES.WELCOME_TEACHER_AR : PAYMENT_TEMPLATES.WELCOME_TEACHER_EN;
+    await sendWhatsAppTemplate({
+      to: teacher.phone,
+      templateName: welcomeTemplate,
+      variables: [teacher.firstName + " " + teacher.lastName || "المعلم"],
+      language: welcomeTemplate.includes("_ar") ? "ar" : "en_US",
+      recipientName: teacher.firstName + " " + teacher.lastName || "المعلم"
+    });
+  } catch (err) {
+    console.error("خطأ إرسال واتساب (تسجيل/ترحيب):", err.message);
+  }
   res.send({
     status: 201,
     data: { firstName: firstNames, lastName: lastNames },
@@ -1365,6 +1408,18 @@ const endLesson = async (req, res) => {
       Teacher.findByPk(session.TeacherId),
     ]);
 
+    // إرسال رسالة واتساب عند إنهاء الدرس
+    await sendLessonNotification({
+      type: "lesson_ended",
+      student,
+      teacher,
+      language: lang,
+      lessonDetails: {
+        date: session.date || new Date().toLocaleDateString("ar-EG"),
+        time: session.period || new Date().toLocaleTimeString("ar-EG"),
+      },
+    });
+
     const message = lang === "ar" ? "انتهى الدرس الآن." : "The lesson is now finished.";
 
     // إرسال الإشعارات بالتوازي
@@ -1643,10 +1698,21 @@ const getSingleLecture = async (req, res) => {
     where: { id : lectureId },
     include : [ { model: Teacher} ],
   });
+const [subject, classData, curriculums] = await Promise.all([
+      Subject.findOne({ where: { id: objLecture.subject } }),
+      Class.findOne({ where: { id: objLecture.class } }),
+      Curriculum.findOne({ where: { id: objLecture.curriculums } }),
+    ]);
 
+    const lectureData = {
+      ...objLecture.dataValues,
+      subject: subject ? subject.dataValues : null,
+      class: classData ? classData.dataValues : null,
+      curriculums: curriculums ? curriculums.dataValues : null
+    };
   res.send({
     status: 201,
-    data: objLecture,
+    data: lectureData,
     msg: {
       arabic: "تم ارجاع جميع المحاضرات المدرب بنجاح",
       english: "successful get all lectures teacher",
@@ -1942,26 +2008,66 @@ const getPackageByTeacherId = async (req, res) => {
 };
 
 const getSinglePackage = async (req, res) => {
-  const { packageId } = req.params;
-  const objPackage = await Package.findOne({
-    where: { id : packageId },
-    include: [
-      { model: Teacher  },
-      { model: TrainingCategoryType },
-      { model: LimeType },
-      { model: SubjectCategory  },
-      { model: Level    },
-    ],
-  });
+  try {
+    const { packageId } = req.params;
 
-  res.send({
-    status: 201,
-    data: objPackage,
-    msg: {
-      arabic: "تم ارجاع بيانات الباقه للمدرب بنجاح",
-      english: "successful get data of package teacher",
-    },
-  });
+    const objPackage = await Package.findOne({
+      where: { id: packageId },
+      include: [
+        { model: Teacher },
+        { model: TrainingCategoryType },
+        { model: LimeType },
+        { model: SubjectCategory },
+        { model: Level },
+      ],
+    });
+
+    if (!objPackage) {
+      return res.status(404).json({
+        status: 404,
+        msg: {
+          arabic: "لم يتم العثور على الباقة",
+          english: "Package not found",
+        },
+      });
+    }
+
+    const classData = await Class.findOne({
+      where: {
+        id: objPackage.class,
+      },
+    });
+
+    const curriculumsData = await Curriculum.findOne({
+      where: {
+        id: objPackage.curriculums,
+      },
+    });
+
+    const packagesData = {
+      ...objPackage.dataValues,
+      class: classData ? classData.dataValues : null,
+      curriculums: curriculumsData ? curriculumsData.dataValues : null,
+    };
+
+    return res.status(200).json({
+      status: 200,
+      data: packagesData,
+      msg: {
+        arabic: "تم ارجاع بيانات الباقه للمدرب بنجاح",
+        english: "Successfully retrieved package data",
+      },
+    });
+  } catch (error) {
+    console.error("Error in getSinglePackage:", error);
+    return res.status(500).json({
+      status: 500,
+      msg: {
+        arabic: "حدث خطأ أثناء جلب بيانات الباقة",
+        english: "An error occurred while retrieving package data",
+      },
+    });
+  }
 };
 
 const createPackage = async (req, res) => {
@@ -2671,9 +2777,25 @@ const getSingleDiscount= async (req, res) => {
     where: { id : discountId },
   });
 
+    const classId = await Class.findOne({
+      where: {
+        id: objDiscount.class,
+      },
+    });
+    const curriculums = await Curriculum.findOne({
+      where: {
+        id: objDiscount.curriculums,
+      },
+    });
+    // إرجاع المورد مع البيانات المرتبطة به
+    const discountWithData = {
+      ...objDiscount.dataValues,
+      class: classId ? classId.dataValues : null,
+      curriculums: curriculums ? curriculums.dataValues : null,
+    };
   res.send({
     status: 201,
-    data: objDiscount,
+    data: discountWithData,
     msg: {
       arabic: "تم ارجاع الخصوصه الخاصه بنجاح",
       english: "successful get all discount teacher",

@@ -1,31 +1,54 @@
-const { Wallet, Student, Teacher, Admin, FinancialRecord, Session, StudentTest, StudentDiscount, StudentPackage } = require("../../models");
-const { sendEmail } = require("../../middlewares/sendEmail");
+const {
+  Wallet,
+  Student,
+  Teacher,
+  Admin,
+  FinancialRecord,
+  Session,
+  StudentTest,
+  StudentDiscount,
+  StudentPackage,
+} = require("../../models");
+const sendEmail = require("../../middlewares/sendEmail");
 const { addToAdminWallet } = require("./adminWallet.service");
-const { sendNotification, sendBookingNotification } = require("./notification.service");
+const {
+  sendNotification,
+  sendBookingNotification,
+} = require("./notification.service");
 const StudentLecture = require("../../models/StudentLecture");
-const { generateChargeInvoiceEmail } = require("../../utils/EmailBodyGenerator");
+const {
+  generateChargeConfirmationEmail,
+} = require("../../utils/EmailBodyGenerator");
 const { addPointsForPurchase } = require("./points.service");
-const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
-
+const { sendWhatsAppTemplate } = require("../../utils/whatsapp");
+const { PAYMENT_TEMPLATES } = require("../../config/whatsapp-templates");
+const { sendInvoiceWhatsApp } = require("../../utils/invoiceWhatsApp");
+const fetch = (...args) =>
+  import("node-fetch").then(({ default: fetch }) => fetch(...args));
 
 exports.handleThawaniPaymentCharge = async (data, newPrice, createEntityFn) => {
   const { FRONTEND_URL, THAWANI_KEY, THAWANI_PUBLISHABLE_KEY } = process.env;
 
-  const response = await fetch("https://checkout.thawani.om/api/v1/checkout/session", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "thawani-api-key": THAWANI_KEY,
+  const response = await fetch(
+    "https://checkout.thawani.om/api/v1/checkout/session",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "thawani-api-key": THAWANI_KEY,
+      },
+      body: JSON.stringify({
+        client_reference_id: "123412",
+        mode: "payment",
+        products: [
+          { name: "product 1", quantity: 1, unit_amount: newPrice * 1000 },
+        ],
+        success_url: `${FRONTEND_URL}/success-payment`,
+        cancel_url: `${FRONTEND_URL}/fail-payment`,
+        metadata: { "Customer name": "somename", "order id": 0 },
+      }),
     },
-    body: JSON.stringify({
-      client_reference_id: "123412",
-      mode: "payment",
-      products: [{ name: "product 1", quantity: 1, unit_amount: newPrice * 1000 }],
-      success_url: `${FRONTEND_URL}/success-payment`,
-      cancel_url: `${FRONTEND_URL}/fail-payment`,
-      metadata: { "Customer name": "somename", "order id": 0 },
-    }),
-  });
+  );
 
   const result = await response.json();
   if (result.success && result.code === 2004) {
@@ -57,25 +80,28 @@ exports.handleThawaniPaymentCharge = async (data, newPrice, createEntityFn) => {
 exports.handleThawaniPayment = async (data, newPrice, createEntityFn) => {
   const { FRONTEND_URL, THAWANI_KEY, THAWANI_PUBLISHABLE_KEY } = process.env;
 
-  const response = await fetch("https://checkout.thawani.om/api/v1/checkout/session", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "thawani-api-key": THAWANI_KEY,
+  const response = await fetch(
+    "https://checkout.thawani.om/api/v1/checkout/session",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "thawani-api-key": THAWANI_KEY,
+      },
+      body: JSON.stringify({
+        client_reference_id: "123412",
+        mode: "payment",
+        products: [
+          { name: "product 1", quantity: 1, unit_amount: newPrice * 1000 },
+        ],
+        success_url: `${FRONTEND_URL}/success-payment`,
+        cancel_url: `${FRONTEND_URL}/fail-payment`,
+        metadata: { "Customer name": "somename", "order id": 0 },
+      }),
     },
-    body: JSON.stringify({
-      client_reference_id: "123412",
-      mode: "payment",
-      products: [{ name: "product 1", quantity: 1, unit_amount: newPrice * 1000 }],
-      success_url: `${FRONTEND_URL}/success-payment`,
-      cancel_url: `${FRONTEND_URL}/fail-payment`,
-      metadata: { "Customer name": "somename", "order id": 0 },
-    }),
-  });
+  );
 
   const result = await response.json();
-  console.log(result);
-  
   if (result.success && result.code === 2004) {
     const created = await createEntityFn(data);
     global.session_id = result.data.session_id;
@@ -135,33 +161,78 @@ exports.handleWalletPayment = async (data, newPrice, createEntityFn, type) => {
   const counterField = `booking${type.replace("booking", "")}Numbers`;
   teacher[counterField] = (teacher[counterField] || 0) + 1;
   await teacher.save();
-  const amountadmin = +newPrice * (+admin.profitRatio / 100.0)
-  await addToAdminWallet(amountadmin)
+  const amountadmin = +newPrice * (+admin.profitRatio / 100.0);
+  await addToAdminWallet(amountadmin);
 
   // add points
- await addPointsForPurchase({
-  studentId: student.id,
-  teacherId: teacher.id
-});
+  await addPointsForPurchase({
+    studentId: student.id,
+    teacherId: teacher.id,
+  });
 
   // send email
-  const mailOptions = generateChargeInvoiceEmail(
+  const mailOptions = generateChargeConfirmationEmail(
     language,
     student.name,
     student.email,
     newPrice,
-    currency
+    currency,
   );
   await sendEmail(mailOptions);
+
+  // send WhatsApp payment confirmation and invoice
+  try {
+    const templateName =
+      language === "ar"
+        ? PAYMENT_TEMPLATES.PAYMENT_CONFIRMATION_AR
+        : PAYMENT_TEMPLATES.PAYMENT_CONFIRMATION_EN;
+    await sendWhatsAppTemplate({
+      to: student.phoneNumber,
+      templateName,
+      variables: [student.name, newPrice.toString(), currency, type],
+      language: templateName.includes("_ar") ? "ar" : "en_US",
+      recipientName: student.name,
+      messageType: "payment_confirmation",
+    });
+
+    // إرسال فاتورة دفع مفصلة
+    await sendInvoiceWhatsApp({
+      to: student.phoneNumber,
+      customerName: student.name,
+      invoiceNumber: `INV-${created.id}-${Date.now()}`,
+      totalAmount: newPrice,
+      currency: currency,
+      paymentMethod: "wallet",
+      language: language,
+      invoiceType: type.includes("lesson")
+        ? "lesson_payment"
+        : type.includes("lecture")
+          ? "lecture_payment"
+          : type.includes("package")
+            ? "package_payment"
+            : type.includes("test")
+              ? "test_payment"
+              : "general_payment",
+      sessionDetails: {
+        teacherName: teacher.name || `${teacher.firstName} ${teacher.lastName}`,
+        subject: type,
+        duration: created.period || "60",
+      },
+    });
+  } catch (whatsappError) {
+    console.error(
+      "❌ فشل إرسال رسالة واتساب لتأكيد الدفع:",
+      whatsappError.message,
+    );
+  }
 
   // add notfication
   await sendBookingNotification({
     type,
     student,
     teacher,
-    adminId: "1"
+    adminId: "1",
   });
-
 
   return {
     data: created,
@@ -212,19 +283,65 @@ exports.handleconfirmePaymentCharge = async (language) => {
   await student.save();
 
   // send message to email
-  const mailOptions = generateChargeInvoiceEmail(
+  const mailOptions = generateChargeConfirmationEmail(
     language,
     student.name,
     student.email,
     wallet.price,
     wallet.currency,
-    wallet.sessionId
+    wallet.sessionId,
   );
   await sendEmail(mailOptions);
 
+  // send WhatsApp wallet charge confirmation and invoice
+  try {
+    const templateName =
+      language === "ar"
+        ? PAYMENT_TEMPLATES.WALLET_CHARGE_CONFIRMATION_AR
+        : PAYMENT_TEMPLATES.WALLET_CHARGE_CONFIRMATION_EN;
+    await sendWhatsAppTemplate({
+      to: student.phoneNumber,
+      templateName,
+      variables: [student.name, wallet.price.toString(), wallet.currency],
+      language: templateName.includes("_ar") ? "ar" : "en_US",
+      recipientName: student.name,
+      messageType: "wallet_charge_confirmation",
+    });
+
+    // إرسال فاتورة شحن الرصيد
+    await sendInvoiceWhatsApp({
+      to: student.phoneNumber,
+      customerName: student.name,
+      invoiceNumber: `CHG-${wallet.id}-${Date.now()}`,
+      totalAmount: wallet.price,
+      currency: wallet.currency,
+      paymentMethod: "thawani",
+      language: language,
+      invoiceType: "wallet_charge",
+      transactionId: wallet.sessionId,
+    });
+  } catch (whatsappError) {
+    console.error(
+      "❌ فشل إرسال رسالة واتساب لتأكيد شحن الرصيد:",
+      whatsappError.message,
+    );
+  }
+
   // send notification
-  await sendNotification(`تم ايداع مبلغ قدره ${wallet.price} ريال عماني`, `An amount of ${wallet.price} Omani Riyals has been deposited.`, student.id, "student", "charge_success");
-  await sendNotification(`تم ايداع مبلغ قدره ${wallet.price} ريال عماني في رصيد الطالب ${student.name} `, `An amount of ${wallet.price} Omani Riyals has been deposited into the student's balance ${student.name}`, "1", "admin", "charge_success");
+  await sendNotification(
+    `تم ايداع مبلغ قدره ${wallet.price} ريال عماني`,
+    `An amount of ${wallet.price} Omani Riyals has been deposited.`,
+    student.id,
+    "student",
+    "charge_success",
+  );
+  await sendNotification(
+    `تم ايداع مبلغ قدره ${wallet.price} ريال عماني في رصيد الطالب ${student.name} `,
+    `An amount of ${wallet.price} Omani Riyals has been deposited into the student's balance ${student.name}`,
+    "1",
+    "admin",
+    "charge_success",
+  );
   res.send({
     status: 201,
     data: student,
@@ -311,8 +428,8 @@ exports.handleconfirmePayment = async (language) => {
   teacher.hoursNumbers += +session.period;
   await teacher.save();
   // add mony to admin wallet
-  const amountAdmin = +session.price * (+admin.profitRatio / 100.0)
-  await addToAdminWallet(amountAdmin)
+  const amountAdmin = +session.price * (+admin.profitRatio / 100.0);
+  await addToAdminWallet(amountAdmin);
 
   const student = await Student.findOne({
     where: {
@@ -320,27 +437,81 @@ exports.handleconfirmePayment = async (language) => {
     },
   });
   // add points
- await addPointsForPurchase({
-  studentId: student.id,
-  teacherId: teacher.id
-});
+  await addPointsForPurchase({
+    studentId: student.id,
+    teacherId: teacher.id,
+  });
   // send email
-  const mailOptions = generateChargeInvoiceEmail(
+  const mailOptions = generateChargeConfirmationEmail(
     language,
     student.name,
     student.email,
     session.price,
     session.currency,
-    session.sessionId
+    session.sessionId,
   );
   await sendEmail(mailOptions);
+
+  // send WhatsApp payment confirmation and invoice
+  try {
+    const templateName =
+      language === "ar"
+        ? PAYMENT_TEMPLATES.PAYMENT_CONFIRMATION_AR
+        : PAYMENT_TEMPLATES.PAYMENT_CONFIRMATION_EN;
+    await sendWhatsAppTemplate({
+      to: student.phoneNumber,
+      templateName,
+      variables: [
+        student.name,
+        session.price.toString(),
+        session.currency,
+        session.type,
+      ],
+      language: templateName.includes("_ar") ? "ar" : "en_US",
+      recipientName: student.name,
+      messageType: "payment_confirmation",
+    });
+
+    // إرسال فاتورة دفع مفصلة
+    await sendInvoiceWhatsApp({
+      to: student.phoneNumber,
+      customerName: student.name,
+      invoiceNumber: `PAY-${session.id}-${Date.now()}`,
+      totalAmount: session.price,
+      currency: session.currency,
+      paymentMethod: "thawani",
+      language: language,
+      invoiceType: session.type.includes("lesson")
+        ? "lesson_payment"
+        : session.type.includes("lecture")
+          ? "lecture_payment"
+          : session.type.includes("package")
+            ? "package_payment"
+            : session.type.includes("test")
+              ? "test_payment"
+              : session.type.includes("discount")
+                ? "discount_payment"
+                : "general_payment",
+      transactionId: session.sessionId,
+      sessionDetails: {
+        teacherName: teacher.name || `${teacher.firstName} ${teacher.lastName}`,
+        subject: session.type,
+        duration: session.period || "60",
+      },
+    });
+  } catch (whatsappError) {
+    console.error(
+      "❌ فشل إرسال رسالة واتساب لتأكيد الدفع:",
+      whatsappError.message,
+    );
+  }
 
   // add notfication
   await sendBookingNotification({
     type: session.type,
     student,
     teacher,
-    adminId: "1"
+    adminId: "1",
   });
 
   res.send({
@@ -351,4 +522,4 @@ exports.handleconfirmePayment = async (language) => {
       english: "successful booking from thawani",
     },
   });
-}
+};
