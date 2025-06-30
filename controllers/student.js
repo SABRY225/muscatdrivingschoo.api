@@ -1444,6 +1444,7 @@ const getStudentTests = async (req, res) => {
     const dataStudentTest = await StudentTest.findAll({
       where: {
         StudentId: StudentId,
+        isPaid:true
       },
       include: [
         { model: Tests , include: [Level] },
@@ -1955,9 +1956,10 @@ const getEvaluationsByStudent = async (req, res) => {
   }
 };
 
+// new
 const checkStudentSubscription = async (req, res) => {
   try {
-    const { StudentId, type } = req.params;
+    const { StudentId, type,val } = req.params;
 
     if (!StudentId || !type) {
       return res.status(400).json({
@@ -1972,20 +1974,17 @@ const checkStudentSubscription = async (req, res) => {
     let model;
 
     switch (type) {
-      case "lecture":
+      case "LectureId":
         model = StudentLecture;
         break;
-      case "test":
+      case "TestId":
         model = StudentTest;
         break;
-      case "discount":
+      case "DiscountId":
         model = StudentDiscount;
         break;
-      case "package":
+      case "PackageId":
         model = StudentPackage;
-        break;
-      case "teacherLecture":
-        model = TeacherLecture;
         break;
       default:
         return res.status(400).json({
@@ -1998,11 +1997,12 @@ const checkStudentSubscription = async (req, res) => {
     }
 
     const subscription = await model.findOne({
-      where: { StudentId },
+      where: { StudentId ,isPaid:1,[type]: val},
     });
 
     return res.status(200).json({
       status: 200,
+      data:subscription,
       subscription: subscription ? true : false,
       msg: {
         arabic: subscription ? "لقد قمت بحجزها من قبل " : "الطالب غير مشترك",

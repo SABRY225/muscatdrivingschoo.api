@@ -48,6 +48,22 @@ const Career = Sequelize.define(
       type: DataTypes.STRING,
       allowNull: false,
     },
+    TeacherId: {
+  type: DataTypes.INTEGER,
+  allowNull: true,
+  references: {
+    model: "Teachers",
+    key: "id"
+  }
+},
+GuestId: {
+  type: DataTypes.INTEGER,
+  allowNull: true,
+  references: {
+    model: "Guests",
+    key: "id"
+  }
+}
     
   },
 );

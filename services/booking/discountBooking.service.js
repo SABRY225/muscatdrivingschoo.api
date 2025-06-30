@@ -1,5 +1,5 @@
 const { createStudentDiscount } = require("../shared/createEntities.service");
-const { handleThawaniPayment, handleWalletPayment } = require("../shared/paymentHandler.service");
+const { handleThawaniPayment, handleWalletPayment, handlePointsPayment } = require("../shared/paymentHandler.service");
 
 exports.book = async (data) => {
   const { price, typeOfPayment } = data;
@@ -10,5 +10,7 @@ exports.book = async (data) => {
     return await handleThawaniPayment(data, price, createStudentDiscount);
   } else if (typeOfPayment === "wallet") {
     return await handleWalletPayment(data, price, createStudentDiscount, "dicount_booking");
+  }else if(typeOfPayment === "points"){
+    return await handlePointsPayment(data, price, createStudentDiscount, "dicount_booking");
   }
 };

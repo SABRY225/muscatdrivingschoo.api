@@ -23,6 +23,7 @@ const { addPointsForPurchase } = require("./points.service");
 const { sendWhatsAppTemplate } = require("../../utils/whatsapp");
 const { PAYMENT_TEMPLATES } = require("../../config/whatsapp-templates");
 const { sendInvoiceWhatsApp } = require("../../utils/invoiceWhatsApp");
+const Invite = require("../../models/Invite");
 const fetch = (...args) =>
   import("node-fetch").then(({ default: fetch }) => fetch(...args));
 
@@ -126,7 +127,14 @@ exports.handleWalletPayment = async (data, newPrice, createEntityFn, type) => {
 
   const student = await Student.findOne({ where: { id: StudentId } });
   if (+student.wallet < +newPrice) {
-    throw new Error("Your current wallet is less than the required price");
+       return {
+    error: true,
+    status: 400,
+    msg: {
+      arabic: "رصيد المحفظة الحالي أقل من السعر المطلوب",
+      english: "Your current wallet is less than the required price",
+    }
+  };
   }
 
   const created = await createEntityFn(data);
@@ -239,6 +247,131 @@ exports.handleWalletPayment = async (data, newPrice, createEntityFn, type) => {
     msg: {
       arabic: "تم الدفع من خلال المحفظة",
       english: "Booking with wallet",
+    },
+  };
+};
+
+exports.handlePointsPayment = async (data, newPrice, createEntityFn, type) => {
+  const { StudentId, TeacherId, currency, language } = data;
+
+  const student = await Student.findOne({ where: { id: StudentId } });
+  const studentInvite = await Invite.findOne({ where: { userId: StudentId } });
+  if(!studentInvite){
+           return {
+    error: true,
+    status: 400,
+    msg: {
+      arabic: "للاسف لا تمتلك اي نقاط مكتسبة",
+      english: "Unfortunately, you don't have any acquired points."
+    }
+  };
+  }
+  if ((+studentInvite.amountPoints / 50) < +newPrice) {
+       return {
+    error: true,
+    status: 400,
+    msg: {
+      arabic: "رصيد من النقاط المكتسبة الحالي غير كافي للشراء",
+      english: "A balance of the current acquired points is not sufficient to buy"
+    }
+  };
+  }
+
+  const created = await createEntityFn(data);
+  created.isPaid = true;
+  await created.save();
+
+  studentInvite.amountPoints -= +newPrice * 50
+  await studentInvite.save();
+
+  await FinancialRecord.create({
+    StudentId,
+    TeacherId,
+    currency,
+    amount: newPrice,
+    type,
+  });
+
+  const teacher = await Teacher.findOne({ where: { id: TeacherId } });
+  const admin = await Admin.findOne({ where: { id: "1" } });
+
+  const discount = 1 - +admin.profitRatio / 100.0;
+  teacher.totalAmount += +newPrice * discount;
+  const counterField = `booking${type.replace("booking", "")}Numbers`;
+  teacher[counterField] = (teacher[counterField] || 0) + 1;
+  await teacher.save();
+  const amountadmin = +newPrice * (+admin.profitRatio / 100.0);
+  await addToAdminWallet(amountadmin);
+
+  // send email
+  const mailOptions = generateChargeConfirmationEmail(
+    language,
+    student.name,
+    student.email,
+    newPrice,
+    currency,
+  );
+  await sendEmail(mailOptions);
+
+  // send WhatsApp payment confirmation and invoice
+  try {
+    const templateName =
+      language === "ar"
+        ? PAYMENT_TEMPLATES.PAYMENT_CONFIRMATION_AR
+        : PAYMENT_TEMPLATES.PAYMENT_CONFIRMATION_EN;
+    await sendWhatsAppTemplate({
+      to: student.phoneNumber,
+      templateName,
+      variables: [student.name, newPrice.toString(), currency, type],
+      language: templateName.includes("_ar") ? "ar" : "en_US",
+      recipientName: student.name,
+      messageType: "payment_confirmation",
+    });
+
+    // إرسال فاتورة دفع مفصلة
+    await sendInvoiceWhatsApp({
+      to: student.phoneNumber,
+      customerName: student.name,
+      invoiceNumber: `INV-${created.id}-${Date.now()}`,
+      totalAmount: newPrice,
+      currency: currency,
+      paymentMethod: "wallet",
+      language: language,
+      invoiceType: type.includes("lesson")
+        ? "lesson_payment"
+        : type.includes("lecture")
+          ? "lecture_payment"
+          : type.includes("package")
+            ? "package_payment"
+            : type.includes("test")
+              ? "test_payment"
+              : "general_payment",
+      sessionDetails: {
+        teacherName: teacher.name || `${teacher.firstName} ${teacher.lastName}`,
+        subject: type,
+        duration: created.period || "60",
+      },
+    });
+  } catch (whatsappError) {
+    console.error(
+      "❌ فشل إرسال رسالة واتساب لتأكيد الدفع:",
+      whatsappError.message,
+    );
+  }
+
+  // add notfication
+  await sendBookingNotification({
+    type,
+    student,
+    teacher,
+    adminId: "1",
+  });
+
+  return {
+    data: created,
+    msg: {
+      arabic: "تم الدفع من خلال النقط المكتسبة",
+      english: "Payed through acquired points",
     },
   };
 };

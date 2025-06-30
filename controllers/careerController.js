@@ -36,13 +36,13 @@ const createCareer = async (req, res) => {
   }
 
   const newCareer = await Career.create({
-    titleAR, titleEN, country,
-    descriptionAr, descriptionEn,
-    CareerDepartmentId, image,
-    advertiserName, advertiserPhone,
-    TeacherId, status: "1"
+    titleAR:titleAR, titleEN:titleEN, country,
+    descriptionAr:descriptionAr, descriptionEn:descriptionEn,
+    CareerDepartmentId:CareerDepartmentId, image:image,
+    advertiserName:advertiserName, advertiserPhone:advertiserPhone,
+    TeacherId:TeacherId, status: "1"
   });
-
+ await newCareer.save();
   res.status(201).send({
     data: newCareer,
     msg: {
@@ -66,7 +66,8 @@ const deleteCareer = async (req, res) => {
 };
 // updateCareer
 const updateCareer = async (req, res) => {
-  const { titleAR, titleEN, country, descriptionAr, descriptionEn, advertiserName, advertiserPhone, CareerDepartmentId } = req.body;
+  try{
+const { titleAR, titleEN, country, descriptionAr, descriptionEn, advertiserName, advertiserPhone, CareerDepartmentId } = req.body;
   const { careerId } = req.params;
 
   const objCareer = await Career.findByPk(careerId);
@@ -98,6 +99,11 @@ const updateCareer = async (req, res) => {
       english: "Career updated successfully",
     },
   });
+  }catch(error){
+res.status(500).send({
+     error:error.message
+})
+  }
 };
 
 const createCareerStepOne = async (req, res) => {

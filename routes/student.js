@@ -79,5 +79,5 @@ studentRouter.get("/refunds/:StudentId",       errorCatcher(getRefundStudentById
 
 studentRouter.get("/get-bills-student/:studentId", errorCatcher(getSessionsByStudent));
 studentRouter.get("/evaluations/:StudentId", errorCatcher(getEvaluationsByStudent));
-studentRouter.get('/check-subscription/:StudentId/:type', errorCatcher(checkStudentSubscription) );
+studentRouter.get('/check-subscription/:StudentId/:type/:val', errorCatcher(checkStudentSubscription) );
 module.exports = studentRouter;
