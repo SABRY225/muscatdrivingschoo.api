@@ -22,6 +22,7 @@ const {
   getSessionsByStudent,
   getEvaluationsByStudent,
   checkStudentSubscription,
+  getStudentStats,
 } = require("../controllers/student");
 const checkUserAuth = require("../middlewares/checkUserAuth");
 const verifyToken   = require("../middlewares/verifyToken");
@@ -80,4 +81,6 @@ studentRouter.get("/refunds/:StudentId",       errorCatcher(getRefundStudentById
 studentRouter.get("/get-bills-student/:studentId", errorCatcher(getSessionsByStudent));
 studentRouter.get("/evaluations/:StudentId", errorCatcher(getEvaluationsByStudent));
 studentRouter.get('/check-subscription/:StudentId/:type/:val', errorCatcher(checkStudentSubscription) );
+studentRouter.get("/stats/charts/:StudentId", errorCatcher(getStudentStats));
+
 module.exports = studentRouter;

@@ -87,7 +87,8 @@ const {
   getAllStudent,
   getAllTeacher,
   getAllParent,
-  sendBulkMessages
+  sendBulkMessages,
+  AdminStats
 } = require("../controllers/admin");
 const checkUserAuth = require("../middlewares/checkUserAuth");
 const logout = require("../middlewares/logout");
@@ -479,5 +480,6 @@ adminRouter.get("/getall/teacher", getAllTeacher);
 adminRouter.get("/getall/student", getAllStudent);
 adminRouter.get("/getall/parent", getAllParent);
 adminRouter.post("/send-bulk-messages", verifyToken, checkUserAuth("admin"), errorCatcher(sendBulkMessages))
+adminRouter.get("/stats/charts", errorCatcher(AdminStats))
 
 module.exports = adminRouter;

@@ -16,6 +16,8 @@ const {
   Tests,                      TeacherRefund,
   ExchangeRequestsTeacher,
   Class,
+  AdsTeachers,
+  Career
 } = require("../models");
 const { validateTeacher, loginValidation } = require("../validation");
 const { serverErrs } = require("../middlewares/customError");
@@ -26,7 +28,7 @@ const generateToken = require("../middlewares/generateToken");
 const path = require("path");
 const fs = require("fs");
 const TeacherSubject = require("../models/TeacherSubject");
-const { Op } = require("sequelize");
+const { Op, fn , col, literal} = require("sequelize");
 const { db } = require("../firebaseConfig");
 const CC = require("currency-converter-lt");
 const dotenv = require("dotenv");
@@ -50,79 +52,81 @@ const {
 const { sendLessonEmail } = require("../utils/sendEmailLessonMeeting");
 const Invite = require("../models/Invite");
 const Evaluations = require("../models/Evaluation");
+const Lessons = require("../models/Lesson");
+const StudentLecture = require("../models/StudentLecture");
 dotenv.config();
 let currencyConverter = new CC();
 
-const signUp = async (req, res) => {
-  const { email, phoneNumber, language } = req.body;
-  await validateTeacher.validate({ email });
+const signUp = async (req, res, next) => {
+  try {
+    const { email, phoneNumber, language } = req.body;
 
-  const teacher = await Teacher.findOne({
-    where: {
-      email,
-      isRegistered: true,
-    },
-  });
+    await validateTeacher.validate({ email });
 
-  const student = await Student.findOne({
-    where: {
-      email,
-      isRegistered: true,
-    },
-  });
+    // رسالة الخطأ الموحدة
+    const errorMessage = {
+      arabic:
+        "عفوا ، الحساب غير صالح ، نرجو مراجعه بياناتك مره اخري لكي يتم انشاء حسابك بشكل ناجح",
+      english:
+        "Sorry, the account is not valid. Please review your data again so that your account can be created successfully.",
+    };
 
-  const parent = await Parent.findOne({
-    where: {
-      email,
-    },
-  });
+    // تحقق من الحسابات الموجودة
+    const [teacher, student, parent] = await Promise.all([
+      Teacher.findOne({ where: { email, isRegistered: true } }),
+      Student.findOne({ where: { email, isRegistered: true } }),
+      Parent.findOne({ where: { email } }),
+    ]);
 
-  if (teacher)
-    throw serverErrs.BAD_REQUEST({
-      arabic      : "عفوا ، الحساب غير صالح ، نرجو مراجعه بياناتك مره اخري لكي يتم انشاء حسابك بشكل ناجح",
-      english     : "Sorry, the account is not valid. Please review your data again so that your account can be created successfully.",
-    });
-  if (student)
-    throw serverErrs.BAD_REQUEST({
-      arabic      : "عفوا ، الحساب غير صالح ، نرجو مراجعه بياناتك مره اخري لكي يتم انشاء حسابك بشكل ناجح",
-      english     : "Sorry, the account is not valid. Please review your data again so that your account can be created successfully.",
-    });
-  if (parent)
-    throw serverErrs.BAD_REQUEST({
-      arabic      : "عفوا ، الحساب غير صالح ، نرجو مراجعه بياناتك مره اخري لكي يتم انشاء حسابك بشكل ناجح",
-      english     : "Sorry, the account is not valid. Please review your data again so that your account can be created successfully.",
+    if (teacher || student || parent) {
+      throw serverErrs.BAD_REQUEST(errorMessage);
+    }
+
+    const code = generateRandomCode();
+
+    // لو المعلم موجود بالفعل ولم يسجل
+    const existTeacher = await Teacher.findOne({
+      where: { email, isRegistered: false },
     });
 
-  const code = generateRandomCode();
+    if (existTeacher) {
+      await existTeacher.update({ registerCode: code });
+    } else {
+      await Teacher.create({
+        email,
+        phone: phoneNumber,
+        registerCode: code,
+      });
+    }
 
-  const existTeacher = await Teacher.findOne({
-    where: {
-      email,
-      isRegistered: false,
-    },
-  });
-  if (existTeacher) await existTeacher.update({ registerCode: code });
-  else {
-    const newTeacher = await Teacher.create({
-      email,   phone: phoneNumber,  registerCode: code,
+    // إرسال كود التفعيل
+    try {
+      const mailOptions = generateConfirmEmailBody(code, language, email);
+      const smsOptions = {
+        body: generateConfirmEmailSMSBody(language, code),
+        to: phoneNumber,
+      };
+
+      sendEmail(mailOptions, smsOptions);
+      await sendWhatsAppVerificationCode(phoneNumber, code, language);
+    } catch (sendErr) {
+      console.error("Error sending verification code:", sendErr.message);
+      // يمكنك تجاهل الخطأ أو إعلام المستخدم
+    }
+
+    res.status(201).send({
+      status:201,
+      msg: {
+        arabic: "تم ارسال الإيميل بنجاح",
+        english: "Email sent successfully",
+      },
     });
+  } catch (error) {
+    console.error("SignUp Error:", error.message);
+    next(error);
   }
-  const mailOptions = generateConfirmEmailBody(code, language, email);
-  const smsOptions = {
-    body: generateConfirmEmailSMSBody(language, code),
-    to: phoneNumber,
-  };
-  sendEmail(mailOptions, smsOptions);
-  await sendWhatsAppVerificationCode(
-  phoneNumber,    // رقم الهاتف
-  code,           // كود التحقق
-  language        // اللغة (ar أو en_US)
-);
-  res.send({
-    status: 201,
-    msg: { arabic: "تم ارسال الإيميل بنجاح", english: "successful send email" },
-  });
 };
+
 
 const verifyCode = async (req, res) => {
   const { registerCode, email, long, lat } = req.body;
@@ -3047,7 +3051,220 @@ try {
   }
 }
 
+const getTeacherStats = async (req, res) => {
+  try {
+    const { teacherId } = req.params;
+    const currentYear = new Date().getFullYear();
+
+    // خطوة 1: اجلب البيانات من قاعدة البيانات
+const sessions = await Session.findAll({
+  where: {
+    isPaid: true,
+    TeacherId: teacherId,
+    createdAt: {
+      [Op.between]: [
+        new Date(`${currentYear}-01-01T00:00:00Z`),
+        new Date(`${currentYear}-12-31T23:59:59Z`)
+      ]
+    }
+  },
+  attributes: [
+    [fn("MONTH", col("createdAt")), "month"],
+    [fn("COUNT", col("id")), "total"]
+  ],
+  group: [literal("month")],
+  order: [[literal("month"), "ASC"]]
+});
+
+// تجهيز بيانات 12 شهر
+const monthlyData = Array.from({ length: 12 }, (_, i) => {
+  const monthNum = i + 1;
+  const found = sessions.find(
+    s => parseInt(s.dataValues.month) === monthNum
+  );
+
+  return {
+    month: `${monthNum.toString().padStart(2, "0")}`,
+    Lessons: found ? parseInt(found.dataValues.total) : 0
+  };
+});
+
+  const sessionsNumber = await Session.count({
+    where: {
+      isPaid: true,
+      TeacherId:teacherId
+    },
+  });
+  const packageWaiting = await Package.count({
+    where: {
+      TeacherId:teacherId,
+      status: "1",
+    },
+  });
+  const packageOnline = await Package.count({
+    where: {
+      TeacherId:teacherId,
+      status: "2",
+    },
+  });
+   const teacherLectureWaiting = await TeacherLecture.count({
+    where: {
+      TeacherId:teacherId,
+      status: "1",
+    },
+  });
+    const discountsNumWaiting = await Discounts.count({
+      where: {
+      TeacherId:teacherId,
+        status: "1",
+      },
+    });
+  
+    const discountsOnline = await Discounts.count({
+      where: {
+      TeacherId:teacherId,
+        status: "2",
+      },
+    });
+  
+    const testsOnline = await Tests.count({
+      where: {
+      TeacherId:teacherId,
+        status: "2",
+      },
+    });
+    const testsWaiting= await Tests.count({
+      where: {
+      TeacherId:teacherId,
+        status: "1",
+      },
+    });
+
+  const adsNumTeacherWaiting = await AdsTeachers.count({
+    where: {
+      TeacherId:teacherId,
+      status: "1",
+    },
+  });
+  const adsNumTeacher = await AdsTeachers.count({
+    where: {
+      TeacherId:teacherId,
+      status: "2",
+    },
+  });
+
+  const careerNumWaiting = await Career.count({
+    where: {
+      TeacherId:teacherId,
+      status: "1",
+    },
+  });
+  const careerOnline = await Career.count({
+    where: {
+      TeacherId:teacherId,
+      status: "2",
+    },
+  });
+
+  const lessonWaiting = await Lessons.count({
+    where: {
+      TeacherId:teacherId,
+      status: "pending",
+    },
+  });
+  const lessonOnline = await Lessons.count({
+    where: {
+      TeacherId:teacherId,
+      status: "approved",
+    },
+  });
+  const lessonCanceled = await Lessons.count({
+    where: {
+      TeacherId:teacherId,
+      status: "canceled",
+    },
+  });
+  const lectureOline= await TeacherLecture.count({
+    where: {
+      status: "2" ,
+      TeacherId:teacherId
+    },
+  });
+  const students = await Session.count({
+   where: {
+    TeacherId: teacherId,
+    isPaid: true,
+    StudentId: {
+      [Op.ne]: null, // StudentId not null
+    },
+  },
+  distinct: true,
+  col: 'StudentId',
+  });
+const studentsdata = await Session.findAll({
+  where: {
+    TeacherId: teacherId,
+    isPaid: true,
+    StudentId: {
+      [Op.ne]: null, // StudentId not null
+    },
+  },
+  distinct: true,
+  col: 'StudentId',
+});
+
+
+  const today = new Date();
+const dayOfWeek = today.getDay(); // 0 (Sun) - 6 (Sat)
+const diffToMonday = (dayOfWeek + 6) % 7; // احسب كم ترجع ليوم الاثنين
+const startOfWeek = new Date(today);
+startOfWeek.setDate(today.getDate() - diffToMonday);
+startOfWeek.setHours(0, 0, 0, 0);
+
+const endOfWeek = new Date(startOfWeek);
+endOfWeek.setDate(startOfWeek.getDate() + 6);
+endOfWeek.setHours(23, 59, 59, 999);
+const sessionsThisWeek = await Session.count({
+  where: {
+    isPaid: true,
+    teacherAccept: true,
+    TeacherId: teacherId,
+    createdAt: {
+      [Op.between]: [startOfWeek, endOfWeek],
+    },
+  },
+});
+
+    return res.status(200).json({
+      students,
+      studentsdata,
+      lectureOline,
+      sessionsThisWeek,
+      sessionsNumber,
+      discountsOnline,
+      packageWaiting,
+      testsWaiting,
+      testsOnline,
+      packageOnline,
+      discountsNumWaiting,
+      teacherLectureWaiting,
+      lessonCanceled,
+      lessonOnline,
+      lessonWaiting,
+      careerOnline,
+      careerNumWaiting,
+      adsNumTeacher,
+      adsNumTeacherWaiting,
+      lessonsChart:monthlyData
+    });
+  } catch (error) {
+    console.error("Error fetching monthly revenue:", error);
+    return res.status(500).json({ error: "Server error" });
+  }
+};
+
 module.exports = {
+  getTeacherStats,
   addEvaluations,
   createExchangeRequestsTeacher,
   availbleTeacher,

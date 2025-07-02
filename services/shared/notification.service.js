@@ -1,9 +1,9 @@
-const Notification = require("../../../mb/models/Notification");
-const { sendWhatsAppTemplate } = require("../../../mb/utils/whatsapp");
+const Notification = require("../../models/Notification");
+const { sendWhatsAppTemplate } = require("../../utils/whatsapp");
 const {
   BOOKING_TEMPLATES,
   LESSON_TEMPLATES,
-} = require("../../../mb/config/whatsapp-templates");
+} = require("../../config/whatsapp-templates");
 
 const sendNotification = async (titleAR, titleEn, userId, type, userType) => {
   await Notification.create({

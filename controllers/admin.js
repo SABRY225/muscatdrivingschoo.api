@@ -1,48 +1,54 @@
 const {
-  Admin,            Class,              Level,
-  Subject,          SubjectCategory,    Curriculum,
-  CurriculumLevel,  ParentStudent,      Student,
-  Teacher,          TeacherLevel,       LanguageLevel,
-  Session,          Wallet,             Parent,
-  SocialMedia,      CheckoutRequest,    LangTeachStd,
-  CurriculumTeacher,RemoteSession,      F2FSessionStd,
-  F2FSessionTeacher,Certificates,       Experience,
-  EducationDegree,  TeacherDay,
+  Admin, Class, Level,
+  Subject, SubjectCategory, Curriculum,
+  CurriculumLevel, ParentStudent, Student,
+  Teacher, TeacherLevel, LanguageLevel,
+  Session, Wallet, Parent,
+  SocialMedia, CheckoutRequest, LangTeachStd,
+  CurriculumTeacher, RemoteSession, F2FSessionStd,
+  F2FSessionTeacher, Certificates, Experience,
+  EducationDegree, TeacherDay,
   // ADD By eng.reem.shwky@gamil.com
-  TrainingCategoryType,         TeacherTypes,   LimeType,
-  Package,                      Rate,           DrivingLicenses,
-  TeacherLecture,               TeacherLimits,
+  TrainingCategoryType, TeacherTypes, LimeType,
+  Package, Rate, DrivingLicenses,
+  TeacherLecture, TeacherLimits,
   ExchangeRequestsTeacher,
-  CareerDepartment,             Career,     News,         Tests,
+  CareerDepartment, Career, News, Tests,
   ExchangeRequestsParent,
-  ExchangeRequestsStudent,      Ads,
-  Discounts,                    StudentRefund,  TeacherRefund,
-  AdsDepartment,                AdsImages,      WhatsData,
+  ExchangeRequestsStudent, Ads,
+  Discounts, StudentRefund, TeacherRefund,
+  AdsDepartment, AdsImages, WhatsData,
+  AdsTeachers,
+  StudentDiscount,
+  StudentTest,
+  StudentPackage,
 } = require("../models");
 
 const { PDFDocument } = require("pdf-lib");
-const path      = require("path");
-const fs        = require("fs");
-const pdf       = require("html-pdf");
+const path = require("path");
+const fs = require("fs");
+const pdf = require("html-pdf");
 const sendEmail = require("../middlewares/sendEmail");
 const { adminSendEmailBody } = require("../utils/EmailBodyGenerator");
-const { validateAdminSignUp,  loginValidation,  profitValidation, } = require("../validation");
-const { serverErrs }    = require("../middlewares/customError");
+const { validateAdminSignUp, loginValidation, profitValidation, } = require("../validation");
+const { serverErrs } = require("../middlewares/customError");
 const { compare, hash } = require("bcrypt");
-const generateToken     = require("../middlewares/generateToken");
-const { Op } = require("sequelize");
+const generateToken = require("../middlewares/generateToken");
+const { fn, col, literal,Op } = require("sequelize");
 const { Notifications } = require("../firebaseConfig");
-const { promisify }     = require("util");
-const TeacherSubject    = require("../models/TeacherSubject");
-const FinancialRecord   = require("../models/financialRecord");
+const { promisify } = require("util");
+const TeacherSubject = require("../models/TeacherSubject");
+const Lessons = require("../models/Lesson");
+const FinancialRecord = require("../models/financialRecord");
 const { options } = require("../routes/admin");
 const fetch = (...args) =>
-import("node-fetch").then(({ default: fetch }) => fetch(...args));
-
+  import("node-fetch").then(({ default: fetch }) => fetch(...args));
 const dotenv = require("dotenv");
 const Statistics = require("../models/Statistics");
 const AdminWallet = require("../models/AdminWallet");
 const { sendEmails } = require("../utils/sendEmails");
+const Messages = require("../models/Messages");
+const StudentLecture = require("../models/StudentLecture");
 dotenv.config();
 const signUp = async (req, res) => {
   const { name, email, password } = req.body;
@@ -1120,7 +1126,7 @@ const getAllSessions = async (req, res) => {
 const deleteSessions = async (req, res) => {
   console.log("Delete Sessions");
   console.log(req.params);
-  
+
   const { sessionId } = req.params;
   const objSession = await Session.findOne({
     where: { id: sessionId },
@@ -1130,7 +1136,7 @@ const deleteSessions = async (req, res) => {
       arabic: "الحصه غير موجود",
       english: "Invalid Record ID! ",
     });
-  
+
   await objSession.destroy();
   res.send({
     status: 201,
@@ -1166,7 +1172,7 @@ const getAllWallets = async (req, res) => {
 const deleteWallets = async (req, res) => {
   const { walletId } = req.params;
   const objWallet = await Wallet.findOne({ where: { id: walletId } });
-  if (!objWallet)   
+  if (!objWallet)
     throw serverErrs.BAD_REQUEST({
       arabic: "المحفظة غير موجوده سابقا",
       english: "Wallet is already not found",
@@ -1232,7 +1238,7 @@ const getAllTeachers = async (req, res) => {
       isVerified: true,
       isRegistered: true,
     },
-    
+
   });
 
   res.send({
@@ -1293,7 +1299,9 @@ const getNumbers = async (req, res) => {
 
   const teacherOnline = await Teacher.count({
     where: {
-      isOnline: "1",
+      isOnline: true,
+      isRegistered: true,
+      isVerified: true,
     },
   });
 
@@ -1347,10 +1355,11 @@ const getNumbers = async (req, res) => {
 
   res.send({
     status: 201,
-    data: { studentsNumber,         teachersNumber, parentsNumber, sessionsNumber , studentOnline , 
-      teacherOnline,                packageOnline,              teacherLectureWaiting,
-      parentExchangeNumWaiting,     studentExchangeNumWaiting,
-      teacherExchangeNumWaiting,    discountsNumWaiting,        adsNumWaiting,
+    data: {
+      studentsNumber, teachersNumber, parentsNumber, sessionsNumber, studentOnline,
+      teacherOnline, packageOnline, teacherLectureWaiting,
+      parentExchangeNumWaiting, studentExchangeNumWaiting,
+      teacherExchangeNumWaiting, discountsNumWaiting, adsNumWaiting,
       careerNumWaiting,
     },
     msg: {
@@ -1389,7 +1398,7 @@ const getAllWalletsPdf = async (req, res) => {
     where: {
       isPaid: true,
     },
-    order:   [["createdAt", "DESC"]],
+    order: [["createdAt", "DESC"]],
     include: [{ model: Student }],
   });
   const financialRecords = await FinancialRecord.findAll({
@@ -1438,8 +1447,8 @@ const getAllWalletsPdf = async (req, res) => {
         </thead>
         <tbody>
           ${wallets
-            .map(
-              (wallet) => `
+      .map(
+        (wallet) => `
             <tr>
               <td>${wallet.price}</td>
               <td>${wallet.currency}</td>
@@ -1447,8 +1456,8 @@ const getAllWalletsPdf = async (req, res) => {
               <td>${`${wallet.createdAt}`.substring(0, 24)}</td>
             </tr>
           `
-            )
-            .join("")}
+      )
+      .join("")}
         </tbody>
       </table>
       <h1>Payment Operations</h1>
@@ -1464,22 +1473,21 @@ const getAllWalletsPdf = async (req, res) => {
         </thead>
         <tbody>
           ${financialRecords
-            .map(
-              (financialRecord) => `
+      .map(
+        (financialRecord) => `
             <tr>
               <td>${financialRecord.Student}</td>
-              <td>${
-                financialRecord.Teacher.firstName +
-                " " +
-                financialRecord.Teacher.lastName
-              }</td>
+              <td>${financialRecord.Teacher.firstName +
+          " " +
+          financialRecord.Teacher.lastName
+          }</td>
               <td>${financialRecord.amount}</td>
               <td>${financialRecord.currency}</td>
               <td>${`${financialRecord.createdAt}`.substring(0, 24)}</td>
             </tr>
           `
-            )
-            .join("")}
+      )
+      .join("")}
         </tbody>
       </table>
     </body>
@@ -1520,8 +1528,8 @@ const getAllWalletsPdf = async (req, res) => {
           </thead>
           <tbody>
             ${wallets
-              .map(
-                (wallet) => `
+      .map(
+        (wallet) => `
               <tr>
               <td>${`${wallet.createdAt}`.substring(0, 24)}</td>
               <td>${wallet.Student?.name}</td>
@@ -1529,8 +1537,8 @@ const getAllWalletsPdf = async (req, res) => {
               <td>${wallet.price}</td>
               </tr>
             `
-              )
-              .join("")}
+      )
+      .join("")}
           </tbody>
         </table>
         <h1>عمليات الدفع</h1>
@@ -1546,22 +1554,21 @@ const getAllWalletsPdf = async (req, res) => {
         </thead>
         <tbody>
           ${financialRecords
-            .map(
-              (financialRecord) => `
+      .map(
+        (financialRecord) => `
             <tr>
               <td>${financialRecord.Student}</td>
-              <td>${
-                financialRecord.Teacher.firstName +
-                " " +
-                financialRecord.Teacher.lastName
-              }</td>
+              <td>${financialRecord.Teacher.firstName +
+          " " +
+          financialRecord.Teacher.lastName
+          }</td>
               <td>${financialRecord.amount}</td>
               <td>${financialRecord.currency}</td>
               <td>${`${financialRecord.createdAt}`.substring(0, 24)}</td>
             </tr>
           `
-            )
-            .join("")}
+      )
+      .join("")}
         </tbody>
       </table>
       </body>
@@ -1653,8 +1660,8 @@ const getAllStudentsPDF = async (req, res) => {
           </thead>
           <tbody>
             ${students
-              .map(
-                (student) => `
+      .map(
+        (student) => `
               <tr>
                 <td>${student.email}</td>
                 <td>${student.name}</td>
@@ -1670,8 +1677,8 @@ const getAllStudentsPDF = async (req, res) => {
                 <td>${student.sessionsCount}</td>
               </tr>
             `
-              )
-              .join("")}
+      )
+      .join("")}
           </tbody>
         </table>
       </body>
@@ -1764,8 +1771,8 @@ const getAllTeachersPDF = async (req, res) => {
           </thead>
           <tbody>
             ${teachers
-              .map(
-                (teacher) => `
+      .map(
+        (teacher) => `
               <tr>
                 <td>${teacher.email}</td>
                 <td>${teacher.firstName + " " + teacher.lastName}</td>
@@ -1777,8 +1784,8 @@ const getAllTeachersPDF = async (req, res) => {
                 <td>${teacher.sessionsCount}</td>
               </tr>
             `
-              )
-              .join("")}
+      )
+      .join("")}
           </tbody>
         </table>
       </body>
@@ -1844,16 +1851,16 @@ const getAllParentsPDF = async (req, res) => {
           </thead>
           <tbody>
             ${parents
-              .map(
-                (parent) => `
+      .map(
+        (parent) => `
               <tr>
                 <td>${parent.email}</td>
                 <td>${parent.name}</td>
                 <td>${parent.Students?.length}</td>
               </tr>
             `
-              )
-              .join("")}
+      )
+      .join("")}
           </tbody>
         </table>
       </body>
@@ -1955,16 +1962,16 @@ const allReports = async (req, res) => {
           </thead>
           <tbody>
             ${parents
-              .map(
-                (parent) => `
+      .map(
+        (parent) => `
               <tr>
                 <td>${parent.email}</td>
                 <td>${parent.name}</td>
                 <td>${parent.Students?.length}</td>
               </tr>
             `
-              )
-              .join("")}
+      )
+      .join("")}
           </tbody>
         </table>
       </body>
@@ -2006,8 +2013,8 @@ const allReports = async (req, res) => {
           </thead>
           <tbody>
             ${teachers
-              .map(
-                (teacher) => `
+      .map(
+        (teacher) => `
               <tr>
                 <td>${teacher.email}</td>
                 <td>${teacher.firstName + " " + teacher.lastName}</td>
@@ -2019,8 +2026,8 @@ const allReports = async (req, res) => {
                 <td>${teacher.sessionsCount}</td>
               </tr>
             `
-              )
-              .join("")}
+      )
+      .join("")}
           </tbody>
         </table>
       </body>
@@ -2066,8 +2073,8 @@ const allReports = async (req, res) => {
           </thead>
           <tbody>
             ${students
-              .map(
-                (student) => `
+      .map(
+        (student) => `
               <tr>
                 <td>${student.email}</td>
                 <td>${student.name}</td>
@@ -2083,8 +2090,8 @@ const allReports = async (req, res) => {
                 <td>${student.sessionsCount}</td>
               </tr>
             `
-              )
-              .join("")}
+      )
+      .join("")}
           </tbody>
         </table>
       </body>
@@ -2099,15 +2106,15 @@ const allReports = async (req, res) => {
   //const page    = await browser.newPage();
   try {
     pdf
-    .create(html1, options)
-    .toFile(path.join("invoices", "parents.pdf"), async (err, response) => {
-      if (err) throw serverErrs.BAD_REQUEST("PDF not created");
-    });
+      .create(html1, options)
+      .toFile(path.join("invoices", "parents.pdf"), async (err, response) => {
+        if (err) throw serverErrs.BAD_REQUEST("PDF not created");
+      });
   } catch (error) {
     console.log(error);
   }
- // await page.pdf({ path: `'./businesscard.pdf'` });
- // await browser.close();
+  // await page.pdf({ path: `'./businesscard.pdf'` });
+  // await browser.close();
 
   pdf
     .create(html1, options)
@@ -2139,7 +2146,7 @@ const allReports = async (req, res) => {
     PDFDocument.load(buffer2),
     PDFDocument.load(buffer3),
   ]);
-  
+
   // copy pages from each generated PDF file into new PDF document
   const [pdf1Pages, pdf2Pages, pdf3Pages] = await Promise.all([
     pdfDoc.copyPages(pdf1Doc, pdf1Doc.getPageIndices()),
@@ -2153,10 +2160,10 @@ const allReports = async (req, res) => {
   pdf3Pages.forEach((page) => pdfDoc.addPage(page));
 
   // save final combined PDF file
-  
+
   const mergedPdf = await pdfDoc.save();
   fs.writeFileSync(path.join("invoices", "combined.pdf"), mergedPdf);
-  
+
   //https://aghati.moalime.com/invoices/combined.pdf
   //https://server2.moalime.com/invoices/combined.pdf
   const pdf4 = await fetch("https://server2.moalime.com/invoices/combined.pdf");
@@ -2168,7 +2175,7 @@ const allReports = async (req, res) => {
     "Content-Length": fileData.length,
   });
   res.end(fileData);
-  
+
 };
 
 const getSessionsForStudent = async (req, res) => {
@@ -2362,7 +2369,7 @@ const signAbout = async (req, res) => {
       english: "Invalid trainerId! ",
     });
 
-  const { firstName, lastName, gender, dateOfBirth, phone, country, city , trainingcategorytypes , limetypes} =
+  const { firstName, lastName, gender, dateOfBirth, phone, country, city, trainingcategorytypes, limetypes } =
     req.body;
   let { languages } = req.body;
   if (typeof languages === "string") {
@@ -2372,7 +2379,7 @@ const signAbout = async (req, res) => {
     trainingcategorytypes = JSON.parse(trainingcategorytypes);
   }
 
-  if(typeof limetypes === "string"){
+  if (typeof limetypes === "string") {
     limetypes = JSON.parse(limetypes);
   }
 
@@ -2442,7 +2449,7 @@ const signAbout = async (req, res) => {
 
   res.send({
     status: 201,
-    data: { firstName: firstNames, lastName: lastNames , typesTeachers , limitTeachers },
+    data: { firstName: firstNames, lastName: lastNames, typesTeachers, limitTeachers },
     msg: {
       arabic: "تم تسجيل معلوماتك بنجاح",
       english: "successful sign about data",
@@ -3312,7 +3319,7 @@ const getAllCashBoxStudent = async (req, res) => {
     ],
     order: [["createdAt", "DESC"]],
   });
-  
+
   res.send({
     status: 200,
     data: arrStudents,
@@ -3329,11 +3336,11 @@ const getSingleCashBoxStudent = async (req, res) => {
     where: { StudentId: studentId },
     include: [
       { model: Student, attributes: ["name"], required: false },
-      { model: Teacher},
+      { model: Teacher },
     ],
     order: [["createdAt", "DESC"]],
   });
-  
+
   res.send({
     status: 200,
     data: objRows,
@@ -3349,12 +3356,12 @@ const getSingleCashBoxTeacher = async (req, res) => {
   const objRows = await FinancialRecord.findAll({
     where: { TeacherId: teacherId },
     include: [
-      { model: Student, attributes: ["name" , "image"], required: false },
-      { model: Teacher},
+      { model: Student, attributes: ["name", "image"], required: false },
+      { model: Teacher },
     ],
     order: [["createdAt", "DESC"]],
   });
-  
+
   res.send({
     status: 200,
     data: objRows,
@@ -3372,7 +3379,7 @@ const getAllCashBoxTeacher = async (req, res) => {
     ],
     order: [["createdAt", "DESC"]],
   });
-  
+
   res.send({
     status: 200,
     data: arrTeacher,
@@ -3462,9 +3469,9 @@ const createTrainingCategoryType = async (req, res) => {
 
   const newTrainingCategoryType = await TrainingCategoryType.create(
     {
-      titleAR       : titleAR,
-      titleEN       : titleEN,
-      image         : image,
+      titleAR: titleAR,
+      titleEN: titleEN,
+      image: image,
     },
     {
       returning: true,
@@ -3501,31 +3508,31 @@ const updateTrainingCategoryType = async (req, res) => {
   const { titleAR, titleEN } = req.body;
   const { trainingcategorytypeId } = req.params;
   const obj_tct = await TrainingCategoryType.findOne({
-    where   : { id: trainingcategorytypeId },
-    include : { all: true },
+    where: { id: trainingcategorytypeId },
+    include: { all: true },
   });
   if (!obj_tct)
     throw serverErrs.BAD_REQUEST({
       arabic: "فئه التدريب غير موجود",
       english: "Class not found",
     });
-    const clearImage = (filePath) => {
-      filePath = path.join(__dirname, "..", `images/${filePath}`);
-      fs.unlink(filePath, (err) => {
-        if (err)
-          throw serverErrs.BAD_REQUEST({
-            arabic: "الصورة غير موجودة",
-            english: "Image not found",
-          });
-      });
-    }
-  
-    if (req.file && obj_tct.image) {
-      clearImage(obj_tct.image);
-    }
-    if (req.file) {
-      await obj_tct.update({ image: req.file.filename });
-    }
+  const clearImage = (filePath) => {
+    filePath = path.join(__dirname, "..", `images/${filePath}`);
+    fs.unlink(filePath, (err) => {
+      if (err)
+        throw serverErrs.BAD_REQUEST({
+          arabic: "الصورة غير موجودة",
+          english: "Image not found",
+        });
+    });
+  }
+
+  if (req.file && obj_tct.image) {
+    clearImage(obj_tct.image);
+  }
+  if (req.file) {
+    await obj_tct.update({ image: req.file.filename });
+  }
 
   await obj_tct.update({ titleAR, titleEN });
   res.send({
@@ -3574,9 +3581,9 @@ const createLimeType = async (req, res) => {
 
   const newLimeType = await LimeType.create(
     {
-      titleAR   : titleAR,
-      titleEN   : titleEN,
-      image     : image,
+      titleAR: titleAR,
+      titleEN: titleEN,
+      image: image,
     },
     {
       returning: true,
@@ -3615,14 +3622,14 @@ const deleteLimeType = async (req, res) => {
 const updateLimeType = async (req, res) => {
   console.log("Update Lime Type");
   console.log(req.body);
-  
+
   const { titleAR, titleEN } = req.body;
   const { limetypeId } = req.params;
   const image = req.file.filename;
 
   const obj_tct = await LimeType.findOne({
-    where   : { id: limetypeId },
-    include : { all: true },
+    where: { id: limetypeId },
+    include: { all: true },
   });
   if (!obj_tct)
     throw serverErrs.BAD_REQUEST({
@@ -3668,7 +3675,7 @@ const getSingleAdmin = async (req, res) => {
     });
   res.send({
     status: 201,
-    data  : obj_admin,
+    data: obj_admin,
     msg: {
       arabic: "تم ارجاع الادمن بنجاح",
       english: "successful get single Admin",
@@ -3676,11 +3683,11 @@ const getSingleAdmin = async (req, res) => {
   });
 };
 const getAdmins = async (req, res) => {
-  const obj_admins  = await Admin.findAll();
-  
+  const obj_admins = await Admin.findAll();
+
   res.send({
     status: 201,
-    data  : obj_admins,
+    data: obj_admins,
     msg: {
       arabic: "تم ارجاع الادمن بنجاح",
       english: "successful get all Admin",
@@ -3689,7 +3696,7 @@ const getAdmins = async (req, res) => {
 };
 
 const createAdmin = async (req, res) => {
-  const { email, name, password , whatsappPhone , role , address } = req.body;
+  const { email, name, password, whatsappPhone, role, address } = req.body;
   const admin = await Admin.findOne({
     where: {
       email,
@@ -3702,26 +3709,26 @@ const createAdmin = async (req, res) => {
     });
 
   const obj_Whatsapp = await Admin.findOne({
-      where: {
-        whatsappPhone,
-      },
-    });
+    where: {
+      whatsappPhone,
+    },
+  });
 
-    if (obj_Whatsapp)
-      throw serverErrs.BAD_REQUEST({
-        arabic    : "رقم الواتس اب مستخدم سابقا",
-        english   : "Whatsapp is already used",
-      });
+  if (obj_Whatsapp)
+    throw serverErrs.BAD_REQUEST({
+      arabic: "رقم الواتس اب مستخدم سابقا",
+      english: "Whatsapp is already used",
+    });
 
   const hashPassword = await hash(password, 12);
   const newAdmin = await Admin.create(
     {
-      email         : email,
-      name          : name,
-      password      : hashPassword,
-      whatsappPhone : whatsappPhone,
-      role          : role,
-      address       : address,
+      email: email,
+      name: name,
+      password: hashPassword,
+      whatsappPhone: whatsappPhone,
+      role: role,
+      address: address,
     },
     {
       returning: true,
@@ -3732,34 +3739,34 @@ const createAdmin = async (req, res) => {
     status: 201,
     data: newAdmin,
     msg: {
-      arabic  : "تم إنشاء ادمن جديده بنجاح",
-      english : "successful create new Admin",
+      arabic: "تم إنشاء ادمن جديده بنجاح",
+      english: "successful create new Admin",
     },
   });
 };
 
 const updateAdmin = async (req, res) => {
-  const { email, name, password , whatsappPhone , role , address} = req.body;
-  
+  const { email, name, password, whatsappPhone, role, address } = req.body;
+
   const { AdminId } = req.params;
   const obj_update_admin = await Admin.findOne({
-    where   : { id: AdminId },
-    include : { all: true },
+    where: { id: AdminId },
+    include: { all: true },
   });
   if (!obj_update_admin)
     throw serverErrs.BAD_REQUEST({
       arabic: " الادمن غير موجود",
       english: "Admin not found",
     });
-  await obj_update_admin.update({ 
-    email         : email, 
-    name:name , 
-    password      : obj_update_admin.password , 
-    whatsappPhone : whatsappPhone,
-    role          : role,
-    address       : address,
-   });
-  
+  await obj_update_admin.update({
+    email: email,
+    name: name,
+    password: obj_update_admin.password,
+    whatsappPhone: whatsappPhone,
+    role: role,
+    address: address,
+  });
+
   res.send({
     status: 201,
     data: obj_update_admin,
@@ -3777,7 +3784,7 @@ const deleteAdmin = async (req, res) => {
       arabic: "الادمن غير موجود",
       english: "Invalid Admin ID! ",
     });
-  
+
   await obj_admin.destroy();
   res.send({
     status: 201,
@@ -3796,10 +3803,10 @@ const rejectPackage = async (req, res) => {
   });
   if (!objPackage)
     throw serverErrs.BAD_REQUEST({
-      arabic    : "الباقه غير موجود",
-      english   : "Package not found",
+      arabic: "الباقه غير موجود",
+      english: "Package not found",
     });
-  
+
   console.log("Found Package");
 
   await objPackage.update({ status: "0" });
@@ -3821,8 +3828,8 @@ const acceptPackage = async (req, res) => {
   });
   if (!objPackage)
     throw serverErrs.BAD_REQUEST({
-      arabic    : "الباقه غير موجود",
-      english   : "Package not found",
+      arabic: "الباقه غير موجود",
+      english: "Package not found",
     });
 
   console.log("Found Package");
@@ -3847,11 +3854,11 @@ const getPackageByStatus = async (req, res) => {
       status: status,
     },
     include: [
-      { model: Teacher  },
+      { model: Teacher },
       { model: TrainingCategoryType },
       { model: LimeType },
-      { model: SubjectCategory  },
-      { model: Level    },
+      { model: SubjectCategory },
+      { model: Level },
     ],
   });
 
@@ -3868,11 +3875,11 @@ const getPackageByStatus = async (req, res) => {
 const getAllPackages = async (req, res) => {
   const arrPackage = await Package.findAll({
     include: [
-      { model: Teacher  },
+      { model: Teacher },
       { model: TrainingCategoryType },
       { model: LimeType },
-      { model: SubjectCategory  },
-      { model: Level    },
+      { model: SubjectCategory },
+      { model: Level },
     ],
   });
 
@@ -3896,7 +3903,7 @@ const deleteParentStudent = async (req, res) => {
       arabic: "السجيل غير موجود",
       english: "Invalid Record ID! ",
     });
-  
+
   await objParentStudent.destroy();
   res.send({
     status: 201,
@@ -3911,7 +3918,7 @@ const getRates = async (req, res) => {
 
   const rates = await Rate.findAll({
     include: [{ model: Student, },
-      { model: Teacher, },
+    { model: Teacher, },
     ],
   });
 
@@ -3935,7 +3942,7 @@ const deleteRates = async (req, res) => {
       arabic: "التقيم غير موجود",
       english: "Invalid Record ID! ",
     });
-  
+
   await objRate.destroy();
   res.send({
     status: 201,
@@ -3951,7 +3958,7 @@ const getSingleDrivingLicenses = async (req, res) => {
   const { drivingLicensesId } = req.params;
 
   const objDrivingLicense = await DrivingLicenses.findOne({
-    where      :   { id: drivingLicensesId },
+    where: { id: drivingLicensesId },
     attributes: { exclude: ["password"] },
   });
   if (!objDrivingLicense)
@@ -3963,7 +3970,7 @@ const getSingleDrivingLicenses = async (req, res) => {
   console.log(objDrivingLicense);
   res.send({
     status: 201,
-    data  : objDrivingLicense,
+    data: objDrivingLicense,
     msg: {
       arabic: "تم ارجاع رخصه القياده بنجاح",
       english: "successful get single Driving Licenses",
@@ -3972,11 +3979,11 @@ const getSingleDrivingLicenses = async (req, res) => {
 };
 
 const getDrivingLicenses = async (req, res) => {
-  const objList  = await DrivingLicenses.findAll();
-  
+  const objList = await DrivingLicenses.findAll();
+
   res.send({
     status: 201,
-    data  : objList,
+    data: objList,
     msg: {
       arabic: "تم ارجاع  رخصه القياده بنجاح",
       english: "successful get all Driving Licenses",
@@ -3985,11 +3992,11 @@ const getDrivingLicenses = async (req, res) => {
 };
 
 const createDrivingLicenses = async (req, res) => {
-  const { titleAR, titleEN, country , requirementsAR , requirementsEN } = req.body;
+  const { titleAR, titleEN, country, requirementsAR, requirementsEN } = req.body;
   const image = req.file.filename;
   const objDrivingLicenses = await DrivingLicenses.findOne({
     where: {
-      country : country,
+      country: country,
     },
   });
   if (objDrivingLicenses)
@@ -3997,16 +4004,16 @@ const createDrivingLicenses = async (req, res) => {
       arabic: "الدوله موجوده سابقا",
       english: "country is already found",
     });
-    
+
 
   const newDrivingLicenses = await DrivingLicenses.create(
     {
-      titleAR         : titleAR,
-      titleEN         : titleEN,
-      country         : country,
-      requirementsAR  : requirementsAR,
-      requirementsEN  : requirementsEN,
-      image           : image,
+      titleAR: titleAR,
+      titleEN: titleEN,
+      country: country,
+      requirementsAR: requirementsAR,
+      requirementsEN: requirementsEN,
+      image: image,
     },
     {
       returning: true,
@@ -4017,8 +4024,8 @@ const createDrivingLicenses = async (req, res) => {
     status: 201,
     data: newDrivingLicenses,
     msg: {
-      arabic  : "تم إنشاء رخصه القياده جديده بنجاح",
-      english : "successful create new Driving Licenses",
+      arabic: "تم إنشاء رخصه القياده جديده بنجاح",
+      english: "successful create new Driving Licenses",
     },
   });
 };
@@ -4026,7 +4033,7 @@ const createDrivingLicenses = async (req, res) => {
 const deleteDrivingLicenses = async (req, res) => {
   const { drivingLicensesId } = req.params;
   const objDrivingLicenses = await DrivingLicenses.findOne({ where: { id: drivingLicensesId } });
-  if (!objDrivingLicenses)   
+  if (!objDrivingLicenses)
     throw serverErrs.BAD_REQUEST({
       arabic: "رخصه القياده غير موجوده سابقا",
       english: "Driving Licenses is already not found",
@@ -4047,13 +4054,13 @@ const deleteDrivingLicenses = async (req, res) => {
 };
 
 const updateDrivingLicenses = async (req, res) => {
-  
-  const { titleAR, titleEN, country , requirementsAR , requirementsEN } = req.body;
+
+  const { titleAR, titleEN, country, requirementsAR, requirementsEN } = req.body;
   const { drivingLicensesId } = req.params;
 
   const objDrivingLicenses = await DrivingLicenses.findOne({
-    where   : { id: drivingLicensesId },
-    include : { all: true },
+    where: { id: drivingLicensesId },
+    include: { all: true },
   });
   if (!objDrivingLicenses)
     throw serverErrs.BAD_REQUEST({
@@ -4061,12 +4068,12 @@ const updateDrivingLicenses = async (req, res) => {
       english: "Driving Licenses is already not found",
     });
   await objDrivingLicenses.update({
-    titleAR         : titleAR,
-    titleEN         : titleEN,
-    country         : country,
-    requirementsAR  : requirementsAR,
-    requirementsEN  : requirementsEN,
-   });
+    titleAR: titleAR,
+    titleEN: titleEN,
+    country: country,
+    requirementsAR: requirementsAR,
+    requirementsEN: requirementsEN,
+  });
   const clearImage = (filePath) => {
     filePath = path.join(__dirname, "..", `images/${filePath}`);
     fs.unlink(filePath, (err) => {
@@ -4088,9 +4095,9 @@ const updateDrivingLicenses = async (req, res) => {
   res.send({
     status: 201,
     data: objDrivingLicenses,
-    msg: { 
-      arabic: "تم تعديل بيانات رخصه القياده بنجاح", 
-      english: "successful update Driving Licenses" 
+    msg: {
+      arabic: "تم تعديل بيانات رخصه القياده بنجاح",
+      english: "successful update Driving Licenses"
     },
   });
 };
@@ -4098,7 +4105,7 @@ const updateDrivingLicenses = async (req, res) => {
 const sendMail = async (req, res) => {
   console.log("Send Message New");
   const language = "en";
-  const { email , messageMail } = req.body;
+  const { email, messageMail } = req.body;
   const mailOptions = adminSendEmailBody(messageMail, language, email);
   /*
   const mailOptions = {
@@ -4186,8 +4193,8 @@ const sendWhatsapp = async (req, res) => {
 
 
 const sendWhatsappWaitingSendMessage = async (req, res) => {
-  const { phone , message } = req.body;
-  
+  const { phone, message } = req.body;
+
 };
 
 const getAllParents = async (req, res) => {
@@ -4196,12 +4203,12 @@ const getAllParents = async (req, res) => {
 
   res.send({
     status: 201,
-    data  : objList,
+    data: objList,
     msg: {
       arabic: "تم ارجاع جميع الاباء بنجاح",
       english: "successful get all parents",
     },
-  }); 
+  });
 };
 
 const rejectTeacherLecture = async (req, res) => {
@@ -4211,8 +4218,8 @@ const rejectTeacherLecture = async (req, res) => {
   });
   if (!objLecture)
     throw serverErrs.BAD_REQUEST({
-      arabic    : "المحاضره غير موجود",
-      english   : "Package not found",
+      arabic: "المحاضره غير موجود",
+      english: "Package not found",
     });
 
 
@@ -4234,8 +4241,8 @@ const acceptTeacherLecture = async (req, res) => {
   });
   if (!objLecture)
     throw serverErrs.BAD_REQUEST({
-      arabic    : "المحاضره غير موجود",
-      english   : "Lecture not found",
+      arabic: "المحاضره غير موجود",
+      english: "Lecture not found",
     });
 
 
@@ -4300,8 +4307,8 @@ const createCareerDepartment = async (req, res) => {
   const { titleAR, titleEN } = req.body;
   const newCareerDepartment = await CareerDepartment.create(
     {
-      titleAR   : titleAR,
-      titleEN   : titleEN,
+      titleAR: titleAR,
+      titleEN: titleEN,
     },
     {
       returning: true,
@@ -4320,7 +4327,7 @@ const createCareerDepartment = async (req, res) => {
 };
 const deleteCareerDepartment = async (req, res) => {
   const { careerDepartmentId } = req.params;
-  const objCareerDepartment   = await CareerDepartment.findOne({ where: { id: careerDepartmentId } });
+  const objCareerDepartment = await CareerDepartment.findOne({ where: { id: careerDepartmentId } });
   if (!objCareerDepartment) throw serverErrs.BAD_REQUEST("Career Department not found");
   await CareerDepartment.destroy({
     where: {
@@ -4338,17 +4345,17 @@ const deleteCareerDepartment = async (req, res) => {
 const updateCareerDepartment = async (req, res) => {
   console.log("Update Career Department");
   console.log(req.body);
-  
+
   const { titleAR, titleEN } = req.body;
   const { careerDepartmentId } = req.params;
 
   const objCareerDepartment = await CareerDepartment.findOne({
-    where   : { id: careerDepartmentId },
+    where: { id: careerDepartmentId },
   });
   if (!objCareerDepartment)
     throw serverErrs.BAD_REQUEST({
-      arabic  : " قسم الوظيفة غير موجود",
-      english : "Career Department not found",
+      arabic: " قسم الوظيفة غير موجود",
+      english: "Career Department not found",
     });
   await objCareerDepartment.update({ titleAR, titleEN });
   res.send({
@@ -4359,7 +4366,7 @@ const updateCareerDepartment = async (req, res) => {
 };
 
 const getAllCareer = async (req, res) => {
-  const arrCareer  = await Career.findAll({
+  const arrCareer = await Career.findAll({
     include: { all: true },
   });
   res.send({
@@ -4373,11 +4380,11 @@ const getAllCareer = async (req, res) => {
 };
 
 const createCareer = async (req, res) => {
-  const { titleAR, titleEN, country , descriptionAr , descriptionEn , advertiserName , advertiserPhone , CareerDepartmentId } = req.body;
+  const { titleAR, titleEN, country, descriptionAr, descriptionEn, advertiserName, advertiserPhone, CareerDepartmentId } = req.body;
   const image = req.file.filename;
   const objCareerDepartment = await CareerDepartment.findOne({
     where: {
-      id : CareerDepartmentId,
+      id: CareerDepartmentId,
     },
   });
   if (!objCareerDepartment)
@@ -4388,16 +4395,16 @@ const createCareer = async (req, res) => {
 
   const newCareer = await Career.create(
     {
-      titleAR         : titleAR,
-      titleEN         : titleEN,
-      country         : country,
-      descriptionAr   : descriptionAr,
-      descriptionEn   : descriptionEn,
-      CareerDepartmentId : CareerDepartmentId,
-      image           : image,
-      advertiserName  : advertiserName,
-      advertiserPhone : advertiserPhone,
-      status          : "1"
+      titleAR: titleAR,
+      titleEN: titleEN,
+      country: country,
+      descriptionAr: descriptionAr,
+      descriptionEn: descriptionEn,
+      CareerDepartmentId: CareerDepartmentId,
+      image: image,
+      advertiserName: advertiserName,
+      advertiserPhone: advertiserPhone,
+      status: "1"
     }
   );
   await newCareer.save();
@@ -4405,8 +4412,8 @@ const createCareer = async (req, res) => {
     status: 201,
     data: newCareer,
     msg: {
-      arabic  : "تم إنشاء وظيفه جديده بنجاح",
-      english : "successful create new Career",
+      arabic: "تم إنشاء وظيفه جديده بنجاح",
+      english: "successful create new Career",
     },
   });
 };
@@ -4414,8 +4421,8 @@ const createCareer = async (req, res) => {
 const getSingleCareer = async (req, res) => {
   const { careerId } = req.params;
   const objCareer = await Career.findOne({
-    where   : { id: careerId },
-    include : { all: true },
+    where: { id: careerId },
+    include: { all: true },
   });
 
   if (!objCareer)
@@ -4435,7 +4442,7 @@ const getSingleCareer = async (req, res) => {
 
 const deleteCareer = async (req, res) => {
   const { careerId } = req.params;
-  const objCareer   = await Career.findOne({ where: { id: careerId } });
+  const objCareer = await Career.findOne({ where: { id: careerId } });
   if (!objCareer) throw serverErrs.BAD_REQUEST("Career not found");
   await Career.destroy({
     where: {
@@ -4452,13 +4459,13 @@ const deleteCareer = async (req, res) => {
 };
 
 const updateCareer = async (req, res) => {
-  
-  const { titleAR, titleEN, country , descriptionAr , descriptionEn ,  advertiserName , advertiserPhone, CareerDepartmentId } = req.body;
+
+  const { titleAR, titleEN, country, descriptionAr, descriptionEn, advertiserName, advertiserPhone, CareerDepartmentId } = req.body;
   const { careerId } = req.params;
 
   const objCareer = await Career.findOne({
-    where   : { id: careerId },
-    include : { all: true },
+    where: { id: careerId },
+    include: { all: true },
   });
   if (!objCareer)
     throw serverErrs.BAD_REQUEST({
@@ -4467,15 +4474,15 @@ const updateCareer = async (req, res) => {
     });
 
   await objCareer.update({
-    titleAR         : titleAR,
-    titleEN         : titleEN,
-    country         : country,
-    descriptionAr   : descriptionAr,
-    descriptionEn   : descriptionEn,
-    advertiserName  : advertiserName, 
-    advertiserPhone     : advertiserPhone,
-    CareerDepartmentId  : CareerDepartmentId,
-   });
+    titleAR: titleAR,
+    titleEN: titleEN,
+    country: country,
+    descriptionAr: descriptionAr,
+    descriptionEn: descriptionEn,
+    advertiserName: advertiserName,
+    advertiserPhone: advertiserPhone,
+    CareerDepartmentId: CareerDepartmentId,
+  });
 
   const clearImage = (filePath) => {
     filePath = path.join(__dirname, "..", `images/${filePath}`);
@@ -4498,18 +4505,18 @@ const updateCareer = async (req, res) => {
   res.send({
     status: 201,
     data: objCareer,
-    msg: { 
-      arabic: "تم تعديل بيانات الوظيفة بنجاح", 
-      english: "successful update Career" 
+    msg: {
+      arabic: "تم تعديل بيانات الوظيفة بنجاح",
+      english: "successful update Career"
     },
   });
 };
 
 const getCareerByDepartment = async (req, res) => {
   const { departmentId } = req.params;
-  const arrCareer  = await Career.findAll({
-    where : {
-      CareerDepartmentId : departmentId,
+  const arrCareer = await Career.findAll({
+    where: {
+      CareerDepartmentId: departmentId,
     },
     include: { all: true },
   });
@@ -4529,7 +4536,7 @@ const getSingleNews = async (req, res) => {
   const { newsId } = req.params;
 
   const objNews = await News.findOne({
-    where      :   { id: newsId }
+    where: { id: newsId }
   });
   if (!objNews)
     throw serverErrs.BAD_REQUEST({
@@ -4539,7 +4546,7 @@ const getSingleNews = async (req, res) => {
 
   res.send({
     status: 201,
-    data  : objNews,
+    data: objNews,
     msg: {
       arabic: "تم ارجاع النشره الاخبارية بنجاح",
       english: "successful get single News",
@@ -4548,11 +4555,11 @@ const getSingleNews = async (req, res) => {
 };
 
 const getNews = async (req, res) => {
-  const objList  = await News.findAll();
-  
+  const objList = await News.findAll();
+
   res.send({
     status: 201,
-    data  : objList,
+    data: objList,
     msg: {
       arabic: "تم ارجاع النشره الاخبارية بنجاح",
       english: "successful get all News",
@@ -4561,15 +4568,15 @@ const getNews = async (req, res) => {
 };
 
 const createNews = async (req, res) => {
-  const { titleAR, titleEN , descriptionAR , descriptionEN } = req.body;
+  const { titleAR, titleEN, descriptionAR, descriptionEN } = req.body;
   const image = req.file.filename;
   const newNews = await News.create(
     {
-      titleAR         : titleAR,
-      titleEN         : titleEN,
-      descriptionAR   : descriptionAR,
-      descriptionEN   : descriptionEN,
-      image           : image,
+      titleAR: titleAR,
+      titleEN: titleEN,
+      descriptionAR: descriptionAR,
+      descriptionEN: descriptionEN,
+      image: image,
     },
     {
       returning: true,
@@ -4580,8 +4587,8 @@ const createNews = async (req, res) => {
     status: 201,
     data: newNews,
     msg: {
-      arabic  : "تم إنشاء نشره اخبارية جديده بنجاح",
-      english : "successful create new News",
+      arabic: "تم إنشاء نشره اخبارية جديده بنجاح",
+      english: "successful create new News",
     },
   });
 };
@@ -4589,7 +4596,7 @@ const createNews = async (req, res) => {
 const deleteNews = async (req, res) => {
   const { newId } = req.params;
   const objNews = await News.findOne({ where: { id: newId } });
-  if (!objNews)   
+  if (!objNews)
     throw serverErrs.BAD_REQUEST({
       arabic: "نشره اخبارية غير موجوده سابقا",
       english: "News is already not found",
@@ -4610,12 +4617,12 @@ const deleteNews = async (req, res) => {
 };
 
 const updateNews = async (req, res) => {
-  
-  const { titleAR, titleEN , descriptionAR , descriptionEN } = req.body;
+
+  const { titleAR, titleEN, descriptionAR, descriptionEN } = req.body;
   const { newId } = req.params;
 
   const objNews = await News.findOne({
-    where   : { id: newId }
+    where: { id: newId }
   });
   if (!objNews)
     throw serverErrs.BAD_REQUEST({
@@ -4623,11 +4630,11 @@ const updateNews = async (req, res) => {
       english: "News is already not found",
     });
   await objNews.update({
-    titleAR         : titleAR,
-    titleEN         : titleEN,
-    descriptionAR   : descriptionAR,
-    descriptionEN   : descriptionEN,
-   });
+    titleAR: titleAR,
+    titleEN: titleEN,
+    descriptionAR: descriptionAR,
+    descriptionEN: descriptionEN,
+  });
   const clearImage = (filePath) => {
     filePath = path.join(__dirname, "..", `images/${filePath}`);
     fs.unlink(filePath, (err) => {
@@ -4649,9 +4656,9 @@ const updateNews = async (req, res) => {
   res.send({
     status: 201,
     data: objNews,
-    msg: { 
-      arabic: "تم تعديل بيانات النشره الاخبارية بنجاح", 
-      english: "successful update News" 
+    msg: {
+      arabic: "تم تعديل بيانات النشره الاخبارية بنجاح",
+      english: "successful update News"
     },
   });
 };
@@ -4679,10 +4686,10 @@ const rejectTests = async (req, res) => {
   });
   if (!objTests)
     throw serverErrs.BAD_REQUEST({
-      arabic    : "الاختبار غير موجود",
-      english   : "Test not found",
+      arabic: "الاختبار غير موجود",
+      english: "Test not found",
     });
-  
+
   console.log("Found Package");
 
   await objTests.update({ status: "0" });
@@ -4704,8 +4711,8 @@ const acceptTests = async (req, res) => {
   });
   if (!objTest)
     throw serverErrs.BAD_REQUEST({
-      arabic    : "الاختبار غير موجود",
-      english   : "Test not found",
+      arabic: "الاختبار غير موجود",
+      english: "Test not found",
     });
 
   console.log("Found Test");
@@ -4726,7 +4733,7 @@ const getSingleExchangeRequestsTeacher = async (req, res) => {
   const { exchangeRequestsTeacherId } = req.params;
 
   const objExchangeRequestsTeacher = await ExchangeRequestsTeacher.findOne({
-    where      :   { id: exchangeRequestsTeacherId },
+    where: { id: exchangeRequestsTeacherId },
     include: [{ model: Teacher }],
   });
   if (!objExchangeRequestsTeacher)
@@ -4737,7 +4744,7 @@ const getSingleExchangeRequestsTeacher = async (req, res) => {
 
   res.send({
     status: 201,
-    data  : objExchangeRequestsTeacher,
+    data: objExchangeRequestsTeacher,
     msg: {
       arabic: "تم ارجاع طلب صرف المدرب بنجاح",
       english: "successful get single Exchange Requests Teacher",
@@ -4746,13 +4753,13 @@ const getSingleExchangeRequestsTeacher = async (req, res) => {
 };
 
 const getExchangeRequestsTeachers = async (req, res) => {
-  const objList  = await ExchangeRequestsTeacher.findAll({
+  const objList = await ExchangeRequestsTeacher.findAll({
     include: [{ model: Teacher }],
   });
-  
+
   res.send({
     status: 201,
-    data  : objList,
+    data: objList,
     msg: {
       arabic: "تم ارجاع صرف المدرب بنجاح",
       english: "successful get all Exchange Requests Teacher",
@@ -4761,14 +4768,14 @@ const getExchangeRequestsTeachers = async (req, res) => {
 };
 
 const createExchangeRequestsTeacher = async (req, res) => {
-  const { amount, currency , status , TeacherId, AdminId } = req.body;
+  const { amount, currency, status, TeacherId, AdminId } = req.body;
   const newExchange = await ExchangeRequestsTeacher.create(
     {
-      amount        : amount,
-      currency      : currency,
-      status        : status,
-      TeacherId     : TeacherId,
-      AdminId       : AdminId,
+      amount: amount,
+      currency: currency,
+      status: status,
+      TeacherId: TeacherId,
+      AdminId: AdminId,
     },
     {
       returning: true,
@@ -4779,8 +4786,8 @@ const createExchangeRequestsTeacher = async (req, res) => {
     status: 201,
     data: newExchange,
     msg: {
-      arabic  : "تم إنشاء طلب صرف جديده بنجاح",
-      english : "successful create new Exchange Requests Teacher",
+      arabic: "تم إنشاء طلب صرف جديده بنجاح",
+      english: "successful create new Exchange Requests Teacher",
     },
   });
 };
@@ -4788,7 +4795,7 @@ const createExchangeRequestsTeacher = async (req, res) => {
 const deleteExchangeRequestsTeacher = async (req, res) => {
   const { exchangeRequestsTeacherId } = req.params;
   const objExchangeRequestsTeacher = await ExchangeRequestsTeacher.findOne({ where: { id: exchangeRequestsTeacherId } });
-  if (!objExchangeRequestsTeacher)   
+  if (!objExchangeRequestsTeacher)
     throw serverErrs.BAD_REQUEST({
       arabic: "طلب صرف غير موجوده سابقا",
       english: "Exchange Requests Teacher is already not found",
@@ -4809,11 +4816,11 @@ const deleteExchangeRequestsTeacher = async (req, res) => {
 };
 
 const updateExchangeRequestsTeacher = async (req, res) => {
-  const { amount, currency , status , TeacherId, AdminId } = req.body;
+  const { amount, currency, status, TeacherId, AdminId } = req.body;
   const { exchangeRequestsTeacherId } = req.params;
 
   const objExchangeRequestsTeacher = await ExchangeRequestsTeacher.findOne({
-    where   : { id: exchangeRequestsTeacherId }
+    where: { id: exchangeRequestsTeacherId }
   });
 
   if (!objExchangeRequestsTeacher)
@@ -4822,19 +4829,19 @@ const updateExchangeRequestsTeacher = async (req, res) => {
       english: "Exchange Requests Teacher is already not found",
     });
   await objExchangeRequestsTeacher.update({
-      amount        : amount,
-      currency      : currency,
-      status        : status,
-      TeacherId     : TeacherId,
-      AdminId       : AdminId,
-   });
+    amount: amount,
+    currency: currency,
+    status: status,
+    TeacherId: TeacherId,
+    AdminId: AdminId,
+  });
 
   res.send({
     status: 201,
     data: objExchangeRequestsTeacher,
-    msg: { 
-      arabic: "تم تعديل بيانات صرف الطلب بنجاح", 
-      english: "successful update Exchange Requests Teacher" 
+    msg: {
+      arabic: "تم تعديل بيانات صرف الطلب بنجاح",
+      english: "successful update Exchange Requests Teacher"
     },
   });
 };
@@ -4844,11 +4851,11 @@ const updateExchangeRequestsTeacherByStatus = async (req, res) => {
 
   const { status } = req.body;
   const { exchangeRequestsTeacherId } = req.params;
- 
+
   console.log(status);
   console.log(exchangeRequestsTeacherId);
   const objExchangeRequestsTeacher = await ExchangeRequestsTeacher.findOne({
-    where   : { id: exchangeRequestsTeacherId }
+    where: { id: exchangeRequestsTeacherId }
   });
 
   if (!objExchangeRequestsTeacher)
@@ -4857,36 +4864,36 @@ const updateExchangeRequestsTeacherByStatus = async (req, res) => {
       english: "Exchange Requests Teacher is already not found",
     });
   await objExchangeRequestsTeacher.update({
-      status        : status
-   });
+    status: status
+  });
 
-  if(status == "2"){
+  if (status == "2") {
     res.send({
       status: 201,
       data: objExchangeRequestsTeacher,
-      msg: { 
-        arabic: "تم تعديل بيانات الموافقة علي صرف الطلب بنجاح", 
-        english: "successful agree to Exchange Requests Teacher" 
+      msg: {
+        arabic: "تم تعديل بيانات الموافقة علي صرف الطلب بنجاح",
+        english: "successful agree to Exchange Requests Teacher"
       },
     });
-  }else{
+  } else {
     res.send({
       status: 201,
       data: objExchangeRequestsTeacher,
-      msg: { 
-        arabic: "تم تعديل بيانات رفض علي صرف الطلب بنجاح", 
-        english: "successful disagree to Exchange Requests Teacher" 
+      msg: {
+        arabic: "تم تعديل بيانات رفض علي صرف الطلب بنجاح",
+        english: "successful disagree to Exchange Requests Teacher"
       },
     });
   }
-  
+
 };
 
-const createRefundTeacher = async (req, res) =>{
-  const { amount, reasonAR , reasonEN , TeacherId , totalAmount , currency , AdminId , exchangeRequestTeacherId } = req.body;
+const createRefundTeacher = async (req, res) => {
+  const { amount, reasonAR, reasonEN, TeacherId, totalAmount, currency, AdminId, exchangeRequestTeacherId } = req.body;
 
   const objTeacher = await Teacher.findOne({
-    where  : { id: TeacherId }
+    where: { id: TeacherId }
   });
   if (!objTeacher)
     throw serverErrs.BAD_REQUEST({
@@ -4898,7 +4905,7 @@ const createRefundTeacher = async (req, res) =>{
   await objTeacher.save();
 
   const objExchange = await ExchangeRequestsTeacher.findOne({
-    where  : { id: exchangeRequestTeacherId }
+    where: { id: exchangeRequestTeacherId }
   });
   if (!objExchange)
     throw serverErrs.BAD_REQUEST({
@@ -4906,26 +4913,26 @@ const createRefundTeacher = async (req, res) =>{
       english: "Exchange Requests Teacher is already not found",
     });
   await objExchange.update({
-      status        : "4",
+    status: "4",
   });
-  
+
   await FinancialRecord.create({
-    TeacherId : TeacherId,
-    currency  : currency,
-    amount    : amount,
-    type      : "refund",
+    TeacherId: TeacherId,
+    currency: currency,
+    amount: amount,
+    type: "refund",
   });
 
   const newRefundHistory = await TeacherRefund.create(
     {
-      amount        : amount,
-      currency      : currency,
-      reasonAR      : reasonAR,
-      reasonEN      : reasonEN,
+      amount: amount,
+      currency: currency,
+      reasonAR: reasonAR,
+      reasonEN: reasonEN,
       previousWallet: totalAmount,
-      nowWallet     : objTeacher.totalAmount,  
-      AdminId       : AdminId,
-      TeacherId     : TeacherId
+      nowWallet: objTeacher.totalAmount,
+      AdminId: AdminId,
+      TeacherId: TeacherId
     },
     {
       returning: true,
@@ -4935,7 +4942,7 @@ const createRefundTeacher = async (req, res) =>{
 
   res.send({
     status: 201,
-    data  : newRefundHistory,
+    data: newRefundHistory,
     msg: {
       arabic: "تم عمليه الاسترجاع بنجاح",
       english: "successful add Refund success",
@@ -4948,7 +4955,7 @@ const getSingleExchangeRequestsParent = async (req, res) => {
   const { exchangeRequestsParentId } = req.params;
 
   const objExchangeRequestsParent = await ExchangeRequestsParent.findOne({
-    where      :   { id: exchangeRequestsParentId }
+    where: { id: exchangeRequestsParentId }
   });
   if (!objExchangeRequestsParent)
     throw serverErrs.BAD_REQUEST({
@@ -4958,7 +4965,7 @@ const getSingleExchangeRequestsParent = async (req, res) => {
 
   res.send({
     status: 201,
-    data  : objExchangeRequestsParent,
+    data: objExchangeRequestsParent,
     msg: {
       arabic: "تم ارجاع طلب صرف الاب بنجاح",
       english: "successful get single Exchange Requests Parent",
@@ -4967,13 +4974,13 @@ const getSingleExchangeRequestsParent = async (req, res) => {
 };
 
 const getExchangeRequestsParents = async (req, res) => {
-  const objList  = await ExchangeRequestsParent.findAll({
+  const objList = await ExchangeRequestsParent.findAll({
     include: [{ model: Parent }],
   });
-  
+
   res.send({
     status: 201,
-    data  : objList,
+    data: objList,
     msg: {
       arabic: "تم ارجاع صرف الاباء بنجاح",
       english: "successful get all Exchange Requests Parents",
@@ -4982,14 +4989,14 @@ const getExchangeRequestsParents = async (req, res) => {
 };
 
 const createExchangeRequestsParent = async (req, res) => {
-  const { amount, currency , status , ParentId, AdminId } = req.body;
+  const { amount, currency, status, ParentId, AdminId } = req.body;
   const newExchange = await ExchangeRequestsParent.create(
     {
-      amount        : amount,
-      currency      : currency,
-      status        : status,
-      ParentId      : ParentId,
-      AdminId       : AdminId,
+      amount: amount,
+      currency: currency,
+      status: status,
+      ParentId: ParentId,
+      AdminId: AdminId,
     },
     {
       returning: true,
@@ -5000,8 +5007,8 @@ const createExchangeRequestsParent = async (req, res) => {
     status: 201,
     data: newExchange,
     msg: {
-      arabic  : "تم إنشاء طلب صرف جديده بنجاح",
-      english : "successful create new Exchange Requests Parent",
+      arabic: "تم إنشاء طلب صرف جديده بنجاح",
+      english: "successful create new Exchange Requests Parent",
     },
   });
 };
@@ -5009,7 +5016,7 @@ const createExchangeRequestsParent = async (req, res) => {
 const deleteExchangeRequestsParent = async (req, res) => {
   const { exchangeRequestsParentId } = req.params;
   const objExchangeRequestsParent = await ExchangeRequestsParent.findOne({ where: { id: exchangeRequestsParentId } });
-  if (!objExchangeRequestsParent)   
+  if (!objExchangeRequestsParent)
     throw serverErrs.BAD_REQUEST({
       arabic: "طلب صرف غير موجوده سابقا",
       english: "Exchange Requests Parent is already not found",
@@ -5030,12 +5037,12 @@ const deleteExchangeRequestsParent = async (req, res) => {
 };
 
 const updateExchangeRequestsParent = async (req, res) => {
-  
-  const { amount, currency , status , ParentId, AdminId } = req.body;
+
+  const { amount, currency, status, ParentId, AdminId } = req.body;
   const { exchangeRequestsParentId } = req.params;
 
   const objExchangeRequestsParent = await ExchangeRequestsParent.findOne({
-    where   : { id: exchangeRequestsParentId }
+    where: { id: exchangeRequestsParentId }
   });
 
   if (!objExchangeRequestsParent)
@@ -5044,30 +5051,30 @@ const updateExchangeRequestsParent = async (req, res) => {
       english: "Exchange Requests Parent is already not found",
     });
   await objExchangeRequestsParent.update({
-      amount        : amount,
-      currency      : currency,
-      status        : status,
-      ParentId      : ParentId,
-      AdminId       : AdminId,
-   });
+    amount: amount,
+    currency: currency,
+    status: status,
+    ParentId: ParentId,
+    AdminId: AdminId,
+  });
 
   res.send({
     status: 201,
     data: objExchangeRequestsParent,
-    msg: { 
-      arabic: "تم تعديل بيانات صرف الطلب بنجاح", 
-      english: "successful update Exchange Requests Parent" 
+    msg: {
+      arabic: "تم تعديل بيانات صرف الطلب بنجاح",
+      english: "successful update Exchange Requests Parent"
     },
   });
 };
 
 const updateExchangeRequestsParentByStatus = async (req, res) => {
-  
+
   const { status } = req.body;
   const { exchangeRequestsParentId } = req.params;
 
   const objExchangeRequestsParent = await ExchangeRequestsParent.findOne({
-    where   : { id: exchangeRequestsParentId }
+    where: { id: exchangeRequestsParentId }
   });
 
   if (!objExchangeRequestsParent)
@@ -5076,36 +5083,36 @@ const updateExchangeRequestsParentByStatus = async (req, res) => {
       english: "Exchange Requests Student is already not found",
     });
   await objExchangeRequestsParent.update({
-      status        : status
-   });
+    status: status
+  });
 
-  if(status == "2"){
+  if (status == "2") {
     res.send({
       status: 201,
       data: objExchangeRequestsParent,
-      msg: { 
-        arabic: "تم تعديل بيانات الموافقة علي صرف الطلب بنجاح", 
-        english: "successful agree to Exchange Requests Parent" 
+      msg: {
+        arabic: "تم تعديل بيانات الموافقة علي صرف الطلب بنجاح",
+        english: "successful agree to Exchange Requests Parent"
       },
     });
-  }else{
+  } else {
     res.send({
       status: 201,
       data: objExchangeRequestsParent,
-      msg: { 
-        arabic: "تم تعديل بيانات رفض علي صرف الطلب بنجاح", 
-        english: "successful disagree to Exchange Requests Parent" 
+      msg: {
+        arabic: "تم تعديل بيانات رفض علي صرف الطلب بنجاح",
+        english: "successful disagree to Exchange Requests Parent"
       },
     });
   }
-  
+
 };
 
 const getSingleExchangeRequestsStudent = async (req, res) => {
   const { exchangeRequestsStudentId } = req.params;
 
   const objExchangeRequestsStudent = await ExchangeRequestsStudent.findOne({
-    where      :   { id: exchangeRequestsStudentId },
+    where: { id: exchangeRequestsStudentId },
     include: [{ model: Student }],
   });
   if (!objExchangeRequestsStudent)
@@ -5116,7 +5123,7 @@ const getSingleExchangeRequestsStudent = async (req, res) => {
 
   res.send({
     status: 201,
-    data  : objExchangeRequestsStudent,
+    data: objExchangeRequestsStudent,
     msg: {
       arabic: "تم ارجاع طلب صرف الاب بنجاح",
       english: "successful get single Exchange Requests Student",
@@ -5125,14 +5132,14 @@ const getSingleExchangeRequestsStudent = async (req, res) => {
 };
 
 const getExchangeRequestsStudents = async (req, res) => {
-  const objList  = await ExchangeRequestsStudent.findAll({
+  const objList = await ExchangeRequestsStudent.findAll({
     include: [{ model: Student }],
   });
-  
-  
+
+
   res.send({
     status: 201,
-    data  : objList,
+    data: objList,
     msg: {
       arabic: "تم ارجاع صرف الطلاب بنجاح",
       english: "successful get all Exchange Requests Students",
@@ -5140,25 +5147,25 @@ const getExchangeRequestsStudents = async (req, res) => {
   });
 };
 
-const createRefundStudent = async (req, res) =>{
-  const { amount, reasonAR , reasonEN , StudentId , wallet , currency , AdminId , exchangeRequestStudentId } = req.body;
-  
+const createRefundStudent = async (req, res) => {
+  const { amount, reasonAR, reasonEN, StudentId, wallet, currency, AdminId, exchangeRequestStudentId } = req.body;
+
   const createWallet = async () => {
     const wallet = await Wallet.create({
-      StudentId, price: amount, currency, typeAr: "استرجاع",   typeEn: "refund",
+      StudentId, price: amount, currency, typeAr: "استرجاع", typeEn: "refund",
     });
     return wallet;
   };
 
   const objStudent = await Student.findOne({
-    where  : { id: StudentId }
+    where: { id: StudentId }
   });
   if (!objStudent)
     throw serverErrs.BAD_REQUEST({
       arabic: "الطالب غير موجودة",
       english: "Invalid Student! ",
     });
-  
+
   const objWallet = await createWallet();
   objWallet.isPaid = true;
   await objWallet.save();
@@ -5166,7 +5173,7 @@ const createRefundStudent = async (req, res) =>{
   await objStudent.save();
 
   const objExchange = await ExchangeRequestsStudent.findOne({
-    where  : { id: exchangeRequestStudentId }
+    where: { id: exchangeRequestStudentId }
   });
   if (!objExchange)
     throw serverErrs.BAD_REQUEST({
@@ -5174,19 +5181,19 @@ const createRefundStudent = async (req, res) =>{
       english: "Exchange Requests Student is already not found",
     });
   await objExchange.update({
-      status        : "4",
+    status: "4",
   });
-  
+
   const newRefundHistory = await StudentRefund.create(
     {
-      amount        : amount,
-      currency      : currency,
-      reasonAR      : reasonAR,
-      reasonEN      : reasonEN,
+      amount: amount,
+      currency: currency,
+      reasonAR: reasonAR,
+      reasonEN: reasonEN,
       previousWallet: wallet,
-      nowWallet     : objStudent.wallet,  
-      AdminId       : AdminId,
-      StudentId     : StudentId
+      nowWallet: objStudent.wallet,
+      AdminId: AdminId,
+      StudentId: StudentId
     },
     {
       returning: true,
@@ -5196,7 +5203,7 @@ const createRefundStudent = async (req, res) =>{
 
   res.send({
     status: 201,
-    data  : newRefundHistory,
+    data: newRefundHistory,
     msg: {
       arabic: "تم عمليه الاسترجاع بنجاح",
       english: "successful add Refund success",
@@ -5205,14 +5212,14 @@ const createRefundStudent = async (req, res) =>{
 }
 
 const createExchangeRequestsStudent = async (req, res) => {
-  const { amount, currency , status , StudentId, AdminId } = req.body;
+  const { amount, currency, status, StudentId, AdminId } = req.body;
   const newExchange = await ExchangeRequestsStudent.create(
     {
-      amount        : amount,
-      currency      : currency,
-      status        : status,
-      StudentId     : StudentId,
-      AdminId       : AdminId,
+      amount: amount,
+      currency: currency,
+      status: status,
+      StudentId: StudentId,
+      AdminId: AdminId,
     },
     {
       returning: true,
@@ -5223,8 +5230,8 @@ const createExchangeRequestsStudent = async (req, res) => {
     status: 201,
     data: newExchange,
     msg: {
-      arabic  : "تم إنشاء طلب صرف جديده بنجاح",
-      english : "successful create new Exchange Requests Student",
+      arabic: "تم إنشاء طلب صرف جديده بنجاح",
+      english: "successful create new Exchange Requests Student",
     },
   });
 };
@@ -5232,7 +5239,7 @@ const createExchangeRequestsStudent = async (req, res) => {
 const deleteExchangeRequestsStudent = async (req, res) => {
   const { exchangeRequestsStudentId } = req.params;
   const objExchangeRequestsStudent = await ExchangeRequestsStudent.findOne({ where: { id: exchangeRequestsStudentId } });
-  if (!objExchangeRequestsStudent)   
+  if (!objExchangeRequestsStudent)
     throw serverErrs.BAD_REQUEST({
       arabic: "طلب صرف غير موجوده سابقا",
       english: "Exchange Requests Student is already not found",
@@ -5253,12 +5260,12 @@ const deleteExchangeRequestsStudent = async (req, res) => {
 };
 
 const updateExchangeRequestsStudent = async (req, res) => {
-  
-  const { amount, currency , status , StudentId, AdminId } = req.body;
+
+  const { amount, currency, status, StudentId, AdminId } = req.body;
   const { exchangeRequestsStudentId } = req.params;
 
   const objExchangeRequestsStudent = await ExchangeRequestsStudent.findOne({
-    where   : { id: exchangeRequestsStudentId }
+    where: { id: exchangeRequestsStudentId }
   });
 
   if (!objExchangeRequestsStudent)
@@ -5267,30 +5274,30 @@ const updateExchangeRequestsStudent = async (req, res) => {
       english: "Exchange Requests Student is already not found",
     });
   await objExchangeRequestsStudent.update({
-      amount        : amount,
-      currency      : currency,
-      status        : status,
-      StudentId     : StudentId,
-      AdminId       : AdminId,
-   });
+    amount: amount,
+    currency: currency,
+    status: status,
+    StudentId: StudentId,
+    AdminId: AdminId,
+  });
 
   res.send({
     status: 201,
     data: objExchangeRequestsStudent,
-    msg: { 
-      arabic: "تم تعديل بيانات صرف الطلب بنجاح", 
-      english: "successful update Exchange Requests Parent" 
+    msg: {
+      arabic: "تم تعديل بيانات صرف الطلب بنجاح",
+      english: "successful update Exchange Requests Parent"
     },
   });
 };
 
 const updateExchangeRequestsStudentByStatus = async (req, res) => {
-  
+
   const { status } = req.body;
   const { exchangeRequestsStudentId } = req.params;
 
   const objExchangeRequestsStudent = await ExchangeRequestsStudent.findOne({
-    where   : { id: exchangeRequestsStudentId }
+    where: { id: exchangeRequestsStudentId }
   });
 
   if (!objExchangeRequestsStudent)
@@ -5299,29 +5306,29 @@ const updateExchangeRequestsStudentByStatus = async (req, res) => {
       english: "Exchange Requests Student is already not found",
     });
   await objExchangeRequestsStudent.update({
-      status        : status
-   });
+    status: status
+  });
 
-  if(status == "2"){
+  if (status == "2") {
     res.send({
       status: 201,
       data: objExchangeRequestsStudent,
-      msg: { 
-        arabic: "تم تعديل بيانات الموافقة علي صرف الطلب بنجاح", 
-        english: "successful agree to Exchange Requests Parent" 
+      msg: {
+        arabic: "تم تعديل بيانات الموافقة علي صرف الطلب بنجاح",
+        english: "successful agree to Exchange Requests Parent"
       },
     });
-  }else{
+  } else {
     res.send({
       status: 201,
       data: objExchangeRequestsStudent,
-      msg: { 
-        arabic: "تم تعديل بيانات رفض علي صرف الطلب بنجاح", 
-        english: "successful disagree to Exchange Requests Parent" 
+      msg: {
+        arabic: "تم تعديل بيانات رفض علي صرف الطلب بنجاح",
+        english: "successful disagree to Exchange Requests Parent"
       },
     });
   }
-  
+
 };
 
 const getNumbersExchangeRequests = async (req, res) => {
@@ -5333,13 +5340,13 @@ const getNumbersExchangeRequests = async (req, res) => {
 
   const studentNumWaiting = await ExchangeRequestsStudent.count({
     where: {
-      status: ["1" , "-1"],
+      status: ["1", "-1"],
     },
   });
 
   const teacherNumWaiting = await ExchangeRequestsTeacher.count({
     where: {
-      status: [ "-1" , "1"],
+      status: ["-1", "1"],
     },
   });
 
@@ -5355,7 +5362,7 @@ const getNumbersExchangeRequests = async (req, res) => {
     },
   });
 
-  
+
 
   const studentNumAccept = await ExchangeRequestsStudent.count({
     where: {
@@ -5383,10 +5390,10 @@ const getNumbersExchangeRequests = async (req, res) => {
 
   res.send({
     status: 201,
-    data: { 
-      parentNumWaiting,   parentNumAccept,   parentNumRejected, 
-      studentNumWaiting,  studentNumAccept , studentNumRejected , 
-      teacherNumWaiting,  teacherNumAccept,  teacherNumRejected
+    data: {
+      parentNumWaiting, parentNumAccept, parentNumRejected,
+      studentNumWaiting, studentNumAccept, studentNumRejected,
+      teacherNumWaiting, teacherNumAccept, teacherNumRejected
     },
     msg: {
       arabic: "تم ارجاع جميع الطلاب والمدربين والاباء المسجلين",
@@ -5399,7 +5406,7 @@ const getSingleAds = async (req, res) => {
   const { adsId } = req.params;
 
   const objAds = await Ads.findOne({
-    where      :   { id: adsId },
+    where: { id: adsId },
   });
   if (!objAds)
     throw serverErrs.BAD_REQUEST({
@@ -5409,7 +5416,7 @@ const getSingleAds = async (req, res) => {
 
   res.send({
     status: 201,
-    data  : objExchangeRequestsTeacher,
+    data: objExchangeRequestsTeacher,
     msg: {
       arabic: "تم ارجاع طلب صرف المدرب بنجاح",
       english: "successful get single Exchange Requests Teacher",
@@ -5418,69 +5425,118 @@ const getSingleAds = async (req, res) => {
 };
 
 const getAllAds = async (req, res) => {
-  const listAds  = await Ads.findAll(
-    {
-      include: [{ 
-        model : AdsDepartment
-      }],
-    }
-  );
-
-  var newArr = [];
-  for( var i=0; i < listAds.length ; i++){
-    const arrImages = await AdsImages.findAll({
-      where       : { AdId: listAds[i].id },
+  try {
+    const listAds = await Ads.findAll({
+      include: [{ model: AdsDepartment }],
     });
 
-    var row_image = ( arrImages.length >0  && arrImages != null) ? arrImages[0].image : "";
-    var createobj = {
-      id                  : listAds[i].id,
-      images              : arrImages,
-      image               : row_image,
-      createdAt           : listAds[i].createdAt,
-      updatedAt           : listAds[i].updatedAt,
-      titleAR             : listAds[i].titleAR,
-      titleEN             : listAds[i].titleEN,
-      descriptionAR       : listAds[i].descriptionAR,
-      descriptionEN       : listAds[i].descriptionEN,
-      link                : listAds[i].link,
-      advertiserPhone     : listAds[i].advertiserPhone,
-      advertiserAddress   : listAds[i].advertiserAddress,
-      status              : listAds[i].status,
-      GuestId             : listAds[i].GuestId,
-      AdsDepartmentId     : listAds[i].AdsDepartmentId,
-      carModel            : listAds[i].carModel,
-      yearManufacture     : listAds[i].yearManufacture,
-      carPrice            : listAds[i].carPrice,
-      currency            : listAds[i].currency,
+    const listAdsTeacher = await AdsTeachers.findAll({
+      include: [{ model: AdsDepartment }],
+    });
+
+    let newArr = [];
+
+    // إعلانات عامة
+    for (let i = 0; i < listAds.length; i++) {
+      const arrImages = await AdsImages.findAll({
+        where: { AdId: listAds[i].id },
+      });
+
+      const row_image = arrImages?.[0]?.image || "";
+      const createobj = {
+        id: listAds[i].id,
+        type: "general", // ← نحدد نوع الإعلان
+        images: arrImages,
+        image: row_image,
+        createdAt: listAds[i].createdAt,
+        updatedAt: listAds[i].updatedAt,
+        titleAR: listAds[i].titleAR,
+        titleEN: listAds[i].titleEN,
+        descriptionAR: listAds[i].descriptionAR,
+        descriptionEN: listAds[i].descriptionEN,
+        link: listAds[i].link,
+        advertiserPhone: listAds[i].advertiserPhone,
+        advertiserAddress: listAds[i].advertiserAddress,
+        status: listAds[i].status,
+        GuestId: listAds[i].GuestId,
+        AdsDepartmentId: listAds[i].AdsDepartmentId,
+        carModel: listAds[i].carModel,
+        yearManufacture: listAds[i].yearManufacture,
+        carPrice: listAds[i].carPrice,
+        currency: listAds[i].currency,
+        department: listAds[i].AdsDepartment || null,
+      };
+      newArr.push(createobj);
     }
-    newArr[i] = createobj;
+
+    // إعلانات المعلمين
+    for (let i = 0; i < listAdsTeacher.length; i++) {
+      const arrImages = await AdsImages.findAll({
+        where: { AdsTeacherId: listAdsTeacher[i].id },
+      });
+
+      const row_image = arrImages?.[0]?.image || "";
+      const createobj = {
+        id: listAdsTeacher[i].id,
+        type: "teacher", // ← نحدد نوع الإعلان
+        images: arrImages,
+        image: row_image,
+        createdAt: listAdsTeacher[i].createdAt,
+        updatedAt: listAdsTeacher[i].updatedAt,
+        titleAR: listAdsTeacher[i].titleAR,
+        titleEN: listAdsTeacher[i].titleEN,
+        descriptionAR: listAdsTeacher[i].descriptionAR,
+        descriptionEN: listAdsTeacher[i].descriptionEN,
+        link: listAdsTeacher[i].link,
+        advertiserPhone: listAdsTeacher[i].advertiserPhone,
+        advertiserAddress: listAdsTeacher[i].advertiserAddress,
+        status: listAdsTeacher[i].status,
+        TeacherId: listAdsTeacher[i].TeacherId,
+        AdsDepartmentId: listAdsTeacher[i].AdsDepartmentId,
+        carModel: listAdsTeacher[i].carModel,
+        yearManufacture: listAdsTeacher[i].yearManufacture,
+        carPrice: listAdsTeacher[i].carPrice,
+        currency: listAdsTeacher[i].currency,
+        department: listAdsTeacher[i].AdsDepartment || null,
+      };
+      newArr.push(createobj);
+    }
+
+    res.status(200).json({
+      status: 200,
+      data: newArr,
+      msg: {
+        arabic: "تم ارجاع جميع الاعلانات بنجاح",
+        english: "Successful get all Ads",
+      },
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({
+      status: 500,
+      msg: {
+        arabic: "حدث خطأ أثناء جلب الإعلانات",
+        english: "Error while fetching ads",
+      },
+    });
   }
-  
-  res.send({
-    status: 201,
-    data  : newArr,
-    msg: {
-      arabic: "تم ارجاع جميع الاعلانات بنجاح",
-      english: "successful get all Ads",
-    },
-  });
 };
 
+
 const createAds = async (req, res) => {
-  const {  titleAR , titleEN , descriptionAR , descriptionEN , 
-           link, carModel, yearManufacture , carPrice , 
-           currency , AdsDepartmentId } = req.body;
+  const { titleAR, titleEN, descriptionAR, descriptionEN,
+    link, carModel, yearManufacture, carPrice,
+    currency, AdsDepartmentId } = req.body;
   const image = req.file.filename;
   const newAds = await Ads.create(
     {
-      titleAR           : titleAR,        titleEN       : titleEN,
-      descriptionAR     : descriptionAR,  descriptionEN     : descriptionEN,
-      link              : link,           image             : image,
-      carModel          : carModel,       yearManufacture   : yearManufacture,
-      carPrice          : carPrice,
-      currency          : currency,
-      AdsDepartmentId   : AdsDepartmentId,
+      titleAR: titleAR, titleEN: titleEN,
+      descriptionAR: descriptionAR, descriptionEN: descriptionEN,
+      link: link, image: image,
+      carModel: carModel, yearManufacture: yearManufacture,
+      carPrice: carPrice,
+      currency: currency,
+      AdsDepartmentId: AdsDepartmentId,
     },
     {
       returning: true,
@@ -5491,8 +5547,8 @@ const createAds = async (req, res) => {
     status: 201,
     data: newAds,
     msg: {
-      arabic  : "تم إنشاء اعلان جديده بنجاح",
-      english : "successful create new ADS",
+      arabic: "تم إنشاء اعلان جديده بنجاح",
+      english: "successful create new ADS",
     },
   });
 };
@@ -5500,12 +5556,28 @@ const createAds = async (req, res) => {
 const deleteAds = async (req, res) => {
   const { adsId } = req.params;
   const objAds = await Ads.findOne({ where: { id: adsId } });
-  if (!objAds)   
-    throw serverErrs.BAD_REQUEST({
-      arabic: "اعلان غير موجوده سابقا",
-      english: "ADS is already not found",
-    });
-
+  if (!objAds) {
+    const objAdsTeacher = await AdsTeachers.findOne({ where: { id: adsId } });
+    if (!objAdsTeacher) {
+      throw serverErrs.BAD_REQUEST({
+        arabic: "اعلان غير موجوده سابقا",
+        english: "ADS is already not found",
+      });
+    } else {
+      await objAdsTeacher.destroy({
+        where: {
+          id: adsId,
+        },
+      });
+      return res.send({
+        status: 201,
+        msg: {
+          arabic: "تم حذف اعلان بنجاح",
+          english: "successful delete Ads",
+        },
+      });
+    }
+  }
   await objAds.destroy({
     where: {
       id: adsId,
@@ -5521,30 +5593,68 @@ const deleteAds = async (req, res) => {
 };
 
 const updateAds = async (req, res) => {
-  const {  titleAR , titleEN , descriptionAR , descriptionEN , 
-    link, carModel, yearManufacture , carPrice , currency ,
+  const { titleAR, titleEN, descriptionAR, descriptionEN,
+    link, carModel, yearManufacture, carPrice, currency,
     AdsDepartmentId
-   } = req.body;
+  } = req.body;
   const { adsId } = req.params;
 
   const objAds = await Ads.findOne({
-    where   : { id: adsId }
+    where: { id: adsId }
   });
 
-  if (!objAds)
-    throw serverErrs.BAD_REQUEST({
-      arabic: "اعلان غير موجوده سابقا",
-      english: "ADS is already not found",
-    });
-  await objAds.update({
-    titleAR       : titleAR,            titleEN       : titleEN,
-    descriptionAR : descriptionAR,      descriptionEN : descriptionEN,
-    link          : link,               carModel          : carModel,
-    yearManufacture   : yearManufacture,carPrice          : carPrice,
-    currency          : currency,       AdsDepartmentId   : AdsDepartmentId,
-   });
+  if (!objAds) {
+    const objAdsTeacher = await AdsTeachers.findOne({ where: { id: adsId } });
+    if (!objAdsTeacher) {
+      throw serverErrs.BAD_REQUEST({
+        arabic: "اعلان غير موجوده سابقا",
+        english: "ADS is already not found",
+      });
+    } else {
+      await objAdsTeacher.update({
+        titleAR: titleAR, titleEN: titleEN,
+        descriptionAR: descriptionAR, descriptionEN: descriptionEN,
+        link: link, carModel: carModel,
+        yearManufacture: yearManufacture, carPrice: carPrice,
+        currency: currency, AdsDepartmentId: AdsDepartmentId,
+      });
 
-   const clearImage = (filePath) => {
+      const clearImage = (filePath) => {
+        filePath = path.join(__dirname, "..", `images/${filePath}`);
+        fs.unlink(filePath, (err) => {
+          if (err)
+            throw serverErrs.BAD_REQUEST({
+              arabic: "الصورة غير موجودة",
+              english: "Image not found",
+            });
+        });
+      }
+
+      if (req.files && objAdsTeacher.image) {
+        clearImage(objAds.image);
+      }
+      if (req.files) {
+        await objAds.update({ image: req.files[0].filename });
+      }
+      return res.send({
+        status: 201,
+        data: objAds,
+        msg: {
+          arabic: "تم تعديل بيانات اعلان بنجاح",
+          english: "successful update Exchange Requests Teacher"
+        },
+      });
+    }
+  }
+  await objAds.update({
+    titleAR: titleAR, titleEN: titleEN,
+    descriptionAR: descriptionAR, descriptionEN: descriptionEN,
+    link: link, carModel: carModel,
+    yearManufacture: yearManufacture, carPrice: carPrice,
+    currency: currency, AdsDepartmentId: AdsDepartmentId,
+  });
+
+  const clearImage = (filePath) => {
     filePath = path.join(__dirname, "..", `images/${filePath}`);
     fs.unlink(filePath, (err) => {
       if (err)
@@ -5555,19 +5665,18 @@ const updateAds = async (req, res) => {
     });
   }
 
-  if (req.file && objAds.image) {
+  if (req.files && objAds.image) {
     clearImage(objAds.image);
   }
-  if (req.file) {
-    await objAds.update({ image: req.file.filename });
+  if (req.files) {
+    await objAds.update({ image: req.files[0].filename });
   }
-
   res.send({
     status: 201,
     data: objAds,
-    msg: { 
-      arabic: "تم تعديل بيانات اعلان بنجاح", 
-      english: "successful update Exchange Requests Teacher" 
+    msg: {
+      arabic: "تم تعديل بيانات اعلان بنجاح",
+      english: "successful update Exchange Requests Teacher"
     },
   });
 };
@@ -5575,7 +5684,7 @@ const updateAds = async (req, res) => {
 const getAllDiscounts = async (req, res) => {
   const arrDiscounts = await Discounts.findAll({
     include: [
-      { model: Teacher  },
+      { model: Teacher },
     ],
   });
 
@@ -5591,9 +5700,9 @@ const getAllDiscounts = async (req, res) => {
 
 const getAllDiscountsAgree = async (req, res) => {
   const arrDiscounts = await Discounts.findAll({
-    where: { status : "2" },
+    where: { status: "2" },
     include: [
-      { model: Teacher  },
+      { model: Teacher },
     ],
   });
 
@@ -5607,12 +5716,12 @@ const getAllDiscountsAgree = async (req, res) => {
   });
 };
 const updateDiscountStatus = async (req, res) => {
-  
-  const { status }     = req.body;
+
+  const { status } = req.body;
   const { discountId } = req.params;
 
   const objDicount = await Discounts.findOne({
-    where   : { id: discountId }
+    where: { id: discountId }
   });
 
   if (!objDicount)
@@ -5621,15 +5730,15 @@ const updateDiscountStatus = async (req, res) => {
       english: "Discount is already not found",
     });
   await objDicount.update({
-      status        : status,
-   });
+    status: status,
+  });
 
   res.send({
     status: 201,
     data: objDicount,
-    msg: { 
-      arabic: "تم تعديل بيانات الخصومه بنجاح", 
-      english: "successful update data status of discount" 
+    msg: {
+      arabic: "تم تعديل بيانات الخصومه بنجاح",
+      english: "successful update data status of discount"
     },
   });
 };
@@ -5670,8 +5779,8 @@ const createAdsDepartment = async (req, res) => {
   const { titleAR, titleEN } = req.body;
   const newAdsDepartment = await AdsDepartment.create(
     {
-      titleAR   : titleAR,
-      titleEN   : titleEN,
+      titleAR: titleAR,
+      titleEN: titleEN,
     },
     {
       returning: true,
@@ -5691,7 +5800,7 @@ const createAdsDepartment = async (req, res) => {
 
 const deleteAdsDepartment = async (req, res) => {
   const { adsDepartmentId } = req.params;
-  const objAdsDepartment   = await AdsDepartment.findOne({ where: { id: adsDepartmentId } });
+  const objAdsDepartment = await AdsDepartment.findOne({ where: { id: adsDepartmentId } });
   if (!objAdsDepartment) throw serverErrs.BAD_REQUEST("Ads Department not found");
   await AdsDepartment.destroy({
     where: {
@@ -5710,17 +5819,17 @@ const deleteAdsDepartment = async (req, res) => {
 const updateAdsDepartment = async (req, res) => {
   console.log("Update Ads Department");
   console.log(req.body);
-  
+
   const { titleAR, titleEN } = req.body;
   const { adsDepartmentId } = req.params;
 
   const objAdsDepartment = await AdsDepartment.findOne({
-    where   : { id: adsDepartmentId },
+    where: { id: adsDepartmentId },
   });
   if (!objAdsDepartment)
     throw serverErrs.BAD_REQUEST({
-      arabic  : " قسم الاعلان غير موجود",
-      english : "Ads Department not found",
+      arabic: " قسم الاعلان غير موجود",
+      english: "Ads Department not found",
     });
   await objAdsDepartment.update({ titleAR, titleEN });
   res.send({
@@ -5731,38 +5840,57 @@ const updateAdsDepartment = async (req, res) => {
 };
 
 const updateAdsStatus = async (req, res) => {
-  const { status }     = req.body;
+  const { status } = req.body;
   const { AdsId } = req.params;
 
   const objAds = await Ads.findOne({
-    where   : { id: AdsId }
+    where: { id: AdsId }
   });
 
-  if (!objAds)
-    throw serverErrs.BAD_REQUEST({
-      arabic: "صف الاعلان غير موجوده سابقا",
-      english: "Ads is already not found",
+  if (!objAds) {
+    const objAdsTeacher = await AdsTeachers.findOne({
+      where: { id: AdsId }
     });
+    if (!objAdsTeacher) {
+      throw serverErrs.BAD_REQUEST({
+        arabic: "صف الاعلان غير موجوده سابقا",
+        english: "Ads is already not found",
+      });
+    } else {
+      await objAdsTeacher.update({
+        status: status,
+      });
+      return res.send({
+        status: 201,
+        data: objAdsTeacher,
+        msg: {
+          arabic: "تم تعديل بيانات الاعلان بنجاح",
+          english: "successful update data status of ads"
+        },
+      });
+    }
+  }
+
   await objAds.update({
-      status        : status,
-   });
+    status: status,
+  });
 
   res.send({
     status: 201,
     data: objAds,
-    msg: { 
-      arabic: "تم تعديل بيانات الاعلان بنجاح", 
-      english: "successful update data status of ads" 
+    msg: {
+      arabic: "تم تعديل بيانات الاعلان بنجاح",
+      english: "successful update data status of ads"
     },
   });
 };
 
 const updateCareerStatus = async (req, res) => {
-  const { status }  = req.body;
-  const { CareerId }   = req.params;
+  const { status } = req.body;
+  const { CareerId } = req.params;
 
   const objCareer = await Career.findOne({
-    where   : { id: CareerId }
+    where: { id: CareerId }
   });
 
   if (!objCareer)
@@ -5771,15 +5899,15 @@ const updateCareerStatus = async (req, res) => {
       english: "Career is already not found",
     });
   await objCareer.update({
-      status        : status,
-   });
+    status: status,
+  });
 
   res.send({
     status: 201,
     data: objCareer,
-    msg: { 
-      arabic: "تم تعديل بيانات الوظيفه بنجاح", 
-      english: "successful update data status of career" 
+    msg: {
+      arabic: "تم تعديل بيانات الوظيفه بنجاح",
+      english: "successful update data status of career"
     },
   });
 };
@@ -5787,7 +5915,7 @@ const updateCareerStatus = async (req, res) => {
 const getCounts = async (req, res) => {
   try {
     const data = await Statistics.findByPk(1);
-    
+
     if (!data) {
       return res.status(404).json({ error: "Data not found" });
     }
@@ -5925,7 +6053,7 @@ const getYearlyRevenue = async (req, res) => {
   try {
     const currentYear = new Date().getFullYear();
     console.log(currentYear);
-    
+
 
     const revenues = await AdminWallet.findAll({
       attributes: [
@@ -5971,7 +6099,7 @@ const getAllTeacher = async (req, res) => {
   try {
     const teachers = await Teacher.findAll({
       where: {
-        isVerified:true
+        isVerified: true
       }
     })
     res.status(200).json({
@@ -6063,7 +6191,289 @@ const sendBulkMessages = async (req, res) => {
     });
   }
 };
+
+// AdminStats
+const AdminStats = async (req, res) => {
+  try {
+    const currentYear = new Date().getFullYear();
+
+    const monthlyData = await AdminWallet.findAll({
+      attributes: [
+        [fn('DATE_FORMAT', col('date'), '%Y-%m'), 'month'],
+        [fn('SUM', col('amount')), 'totalAmount']
+      ],
+      where: {
+        date: {
+          [Op.between]: [
+            new Date(`${currentYear}-01-01`),
+            new Date(`${currentYear}-12-31`)
+          ]
+        }
+      },
+      group: [literal('month')],
+      order: [[literal('month'), 'ASC']],
+      raw: true
+    });
+
+    const dataMap = {};
+    monthlyData.forEach(item => {
+      dataMap[item.month] = parseFloat(item.totalAmount);
+    });
+
+    const monthlyStats = [];
+    for (let month = 1; month <= 12; month++) {
+      const monthKey = `${month.toString().padStart(2, '0')}`;
+      monthlyStats.push({
+        month: monthKey,
+        totalAmount: dataMap[monthKey] || 0
+      });
+    }
+
+    const maxMonth = monthlyStats.reduce((max, item) =>
+      item.totalAmount > max.totalAmount ? item : max,
+      { totalAmount: 0 }
+    );
+  const studentsNumber = await Student.count({
+    where: {
+      isRegistered: true,
+    },
+  });
+
+  const teachersNumber = await Teacher.count({
+    where: {
+      isRegistered: true,
+      isVerified: true,
+    },
+  });
+
+  const parentsNumber = await Parent.count();
+  const sessionsNumber = await Session.count({
+    where: {
+      isPaid: true,
+    },
+  });
+
+  const studentOnline = await Student.count({
+    where: {
+      isOnline: "1",
+    },
+  });
+
+  const teacherOnline = await Teacher.count({
+    where: {
+      isRegistered: true,
+      isVerified: true,
+      isOnline: "1",
+    },
+  });
+
+  const packageWaiting = await Package.count({
+    where: {
+      status: 1,
+    },
+  });
+  const packageOnline = await Package.count({
+    where: {
+      status: "2",
+    },
+  });
+
+  const teacherLectureWaiting = await TeacherLecture.count({
+    where: {
+      status: "1",
+    },
+  });
+
+  const parentExchangeNumWaiting = await ExchangeRequestsParent.count({
+    where: {
+      status: "1",
+    },
+  });
+
+  const studentExchangeNumWaiting = await ExchangeRequestsStudent.count({
+    where: {
+      status: "1",
+    },
+  });
+
+  const teacherExchangeNumWaiting = await ExchangeRequestsTeacher.count({
+    where: {
+      status: "1",
+    },
+  });
+
+  const discountsNumWaiting = await Discounts.count({
+    where: {
+      status: "1",
+    },
+  });
+
+  const discountsOnline = await Discounts.count({
+    where: {
+      status: "2",
+    },
+  });
+
+  const testNumWaiting = await Tests.count({
+    where: {
+      status: "1",
+    },
+  });
+
+  const testsOnline = await Tests.count({
+    where: {
+      status: "2",
+    },
+  });
+  const testsWaiting= await Tests.count({
+    where: {
+      status: 1,
+    },
+  });
+
+
+  const adsNumWaiting = await Ads.count({
+    where: {
+      status: "1",
+    },
+  });
+
+  const adsNum = await Ads.count({
+    where: {
+      status: "2",
+    },
+  });
+    const adsNumTeacherWaiting = await AdsTeachers.count({
+    where: {
+      status: "1",
+    },
+  });
+  const adsNumTeacher = await AdsTeachers.count({
+    where: {
+      status: "2",
+    },
+  });
+
+  const careerNumWaiting = await Career.count({
+    where: {
+      status: "1",
+    },
+  });
+  const careerOnline = await Career.count({
+    where: {
+      status: "2",
+    },
+  });
+
+  const lessonWaiting = await Lessons.count({
+    where: {
+      status: "pending",
+    },
+  });
+  const lessonOnline = await Lessons.count({
+    where: {
+      status: "approved",
+    },
+  });
+  const lessonCanceled = await Lessons.count({
+    where: {
+      status: "canceled",
+    },
+  });
+
+  const parentStudent = await ParentStudent.count({
+    where: {
+      status: "0" ,
+    },
+  });
+
+  const plaintesWaiting= await Messages.count({
+    where: {
+      isReply: false ,
+    },
+  });
+  const plaintes= await Messages.count({});
+
+  const lectureOline= await TeacherLecture.count({
+    where: {
+      status: "2" ,
+    },
+  });
+
+  const packagePay= await StudentPackage.count({
+    where: {
+      isPaid: true ,
+    },
+  });
+  const testPay= await StudentTest.count({
+    where: {
+      isPaid: true ,
+    },
+  });
+  const lecturePay= await StudentLecture.count({
+    where: {
+      isPaid: true ,
+    },
+  });
+  const discountPay= await StudentDiscount.count({
+    where: {
+      isPaid: true ,
+    },
+  });
+    res.status(200).json({
+      packagePay,
+      testPay,
+      lecturePay,
+      discountPay,
+      lectureOline,
+      plaintes,
+      plaintesWaiting,
+      parentStudent,
+      lessonOnline,
+      testsWaiting,
+      lessonCanceled,
+      lessonWaiting,
+      adsNum,
+      totalUsers:studentsNumber+teachersNumber+parentsNumber,
+      totalStudents:studentsNumber,
+      totalInstructors:teachersNumber,
+      Parentstructors:parentsNumber,
+      revenuePerMonth: monthlyStats,
+      maxMonth:maxMonth.totalAmount,
+      sessionsNumber,
+      studentOnline,
+      teacherOnline,
+      packageOnline,
+      teacherLectureWaiting,
+      parentExchangeNumWaiting,
+      studentExchangeNumWaiting,
+      teacherExchangeNumWaiting,
+      discountsNumWaiting,
+      adsNumWaiting:adsNumWaiting+adsNumTeacherWaiting,
+      adsNum:adsNum+adsNumTeacher,
+      careerNumWaiting,
+      packageWaiting,
+      testNumWaiting,
+      discountsOnline,
+      testsOnline,
+      careerOnline,
+      bookingsByType:[
+        {name:"Lessons",value:lessonOnline},
+        {name:"Package",value:packageOnline},
+        {name:"Discount",value:discountsOnline},
+        {name:"Lectures",value:lectureOline},
+        {name:"Tests",value:testsOnline},
+      ]
+    });
+  } catch (error) {
+    console.error("AdminStats error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+
 module.exports = {
+  AdminStats,
   sendBulkMessages,
   getAllParent,
   getAllTeacher,
@@ -6076,86 +6486,86 @@ module.exports = {
   changeCounts,
   signUp,
   login,
-  createStudent,          createTeacher,        createSubjectCategory,
-  createSubject,          createLevel,          createClass,
-  createCurriculum,       getSubjects,          getSingleSubject,
-  getSubjectCategories,   getSingleSubjectCategory,
-  getClasses,             getSingleClass,       getLevels,
-  getSingleLevel,         getCurriculums,       getSingleCurriculum,
-  linkedCurriculumLevel,  acceptStudent,        rejectStudent,
-  getParentStudentWaiting,  getParentStudentAccOrRej,
-  acceptTeacher,            getAcceptedTeachers,      rejectTeacher,
-  getWaitingTeacher,        getLanguageLevel,         updateLevel,
-  updateSubCategories,      updateSubject,            updateClass,
-  updateCurriculum,         payDues,
+  createStudent, createTeacher, createSubjectCategory,
+  createSubject, createLevel, createClass,
+  createCurriculum, getSubjects, getSingleSubject,
+  getSubjectCategories, getSingleSubjectCategory,
+  getClasses, getSingleClass, getLevels,
+  getSingleLevel, getCurriculums, getSingleCurriculum,
+  linkedCurriculumLevel, acceptStudent, rejectStudent,
+  getParentStudentWaiting, getParentStudentAccOrRej,
+  acceptTeacher, getAcceptedTeachers, rejectTeacher,
+  getWaitingTeacher, getLanguageLevel, updateLevel,
+  updateSubCategories, updateSubject, updateClass,
+  updateCurriculum, payDues,
   // Developer by eng.reem.shwky@gmail.com
-  getAllSessions,             deleteSessions,
-  getAllWallets,              getStudentWallets,
-  getThawaniSession,          getAllTeachers,
-  getTeacherFinancial,        getNumbers,
-  getAllWalletsPdf,           getAllStudentsPDF,        getAllTeachersPDF,          getAllParentsPDF,
-  getSessionsForStudent,      getSessionsForTeacher,    editWhatsappPhone,
-  createSocialMedia,          editSocialMedia,          getSocialMedia,
+  getAllSessions, deleteSessions,
+  getAllWallets, getStudentWallets,
+  getThawaniSession, getAllTeachers,
+  getTeacherFinancial, getNumbers,
+  getAllWalletsPdf, getAllStudentsPDF, getAllTeachersPDF, getAllParentsPDF,
+  getSessionsForStudent, getSessionsForTeacher, editWhatsappPhone,
+  createSocialMedia, editSocialMedia, getSocialMedia,
   getWatsappPhone,
-  allReports,                   updateProfitRatio,            deleteTeacher,
-  deleteStudent,                getProfitRatio,     getNewCheckoutRequests,
-  getProcessedCheckoutRequests, acceptCheckout,               rejectCheckout,
-  signAbout,                    uploadImage,        signAdditionalInfo,
+  allReports, updateProfitRatio, deleteTeacher,
+  deleteStudent, getProfitRatio, getNewCheckoutRequests,
+  getProcessedCheckoutRequests, acceptCheckout, rejectCheckout,
+  signAbout, uploadImage, signAdditionalInfo,
   addSubjects,
   signResume,
   signAvailability,
   addDescription,
   signVideoLink,
-  deleteLevel,               deleteClass,                deleteCurriculum,
-  deleteSubjectCategory,     deleteSubject,      suspendTeacher,
-  suspendStudent,            suspendParent,      unSuspendTeacher,
-  unSuspendStudent,          unSuspendParent,    getAllFinancialRecords,
+  deleteLevel, deleteClass, deleteCurriculum,
+  deleteSubjectCategory, deleteSubject, suspendTeacher,
+  suspendStudent, suspendParent, unSuspendTeacher,
+  unSuspendStudent, unSuspendParent, getAllFinancialRecords,
 
   // Developer by eng.reem.shwky@gmail.com
-  deleteFinancialRecords,     getTrainingCategoryTypes,   getSingleTrainingCategoryType,
+  deleteFinancialRecords, getTrainingCategoryTypes, getSingleTrainingCategoryType,
   createTrainingCategoryType, deleteTrainingCategoryType, updateTrainingCategoryType,
 
-  getLimeTypes,             getSingleLimeType,
-  createLimeType,           deleteLimeType,         updateLimeType,         
-  getSingleAdmin,           createAdmin,
-  updateAdmin,              deleteAdmin,            getAdmins,
-  getPackageByStatus,       acceptPackage,          rejectPackage,
+  getLimeTypes, getSingleLimeType,
+  createLimeType, deleteLimeType, updateLimeType,
+  getSingleAdmin, createAdmin,
+  updateAdmin, deleteAdmin, getAdmins,
+  getPackageByStatus, acceptPackage, rejectPackage,
   getAllPackages,
   deleteParentStudent,
-  getRates,                 deleteRates,
-  getSingleDrivingLicenses,                         getDrivingLicenses,
-  createDrivingLicenses,    updateDrivingLicenses,
+  getRates, deleteRates,
+  getSingleDrivingLicenses, getDrivingLicenses,
+  createDrivingLicenses, updateDrivingLicenses,
   deleteDrivingLicenses,
-  getAllParents,            sendMail,
-  rejectTeacherLecture,     acceptTeacherLecture,         getAllLecture,
+  getAllParents, sendMail,
+  rejectTeacherLecture, acceptTeacherLecture, getAllLecture,
 
-  getAllCareerDeparment,    getSingleCareerDepartment,    createCareerDepartment,
-  deleteCareerDepartment,   updateCareerDepartment,
+  getAllCareerDeparment, getSingleCareerDepartment, createCareerDepartment,
+  deleteCareerDepartment, updateCareerDepartment,
 
-  getAllCareer,             createCareer,                 deleteCareer,
-  getSingleCareer,          updateCareer,                 getCareerByDepartment,
-  getSingleNews,            getNews,                      createNews,
-  deleteNews,               updateNews,                   deleteWallets,
-  getTests,                 acceptTests,                  rejectTests,
-  getSingleExchangeRequestsTeacher,     getExchangeRequestsTeachers,
-  createExchangeRequestsTeacher,        deleteExchangeRequestsTeacher,
+  getAllCareer, createCareer, deleteCareer,
+  getSingleCareer, updateCareer, getCareerByDepartment,
+  getSingleNews, getNews, createNews,
+  deleteNews, updateNews, deleteWallets,
+  getTests, acceptTests, rejectTests,
+  getSingleExchangeRequestsTeacher, getExchangeRequestsTeachers,
+  createExchangeRequestsTeacher, deleteExchangeRequestsTeacher,
   updateExchangeRequestsTeacher,
-  getSingleExchangeRequestsParent,      getExchangeRequestsParents,
-  createExchangeRequestsParent,         deleteExchangeRequestsParent,
+  getSingleExchangeRequestsParent, getExchangeRequestsParents,
+  createExchangeRequestsParent, deleteExchangeRequestsParent,
   updateExchangeRequestsParent,
-  getSingleExchangeRequestsStudent,     getExchangeRequestsStudents,
-  createExchangeRequestsStudent,        deleteExchangeRequestsStudent,
-  updateExchangeRequestsStudent,        getNumbersExchangeRequests,
+  getSingleExchangeRequestsStudent, getExchangeRequestsStudents,
+  createExchangeRequestsStudent, deleteExchangeRequestsStudent,
+  updateExchangeRequestsStudent, getNumbersExchangeRequests,
   updateExchangeRequestsStudentByStatus,
   updateExchangeRequestsParentByStatus,
   updateExchangeRequestsTeacherByStatus,
-  getSingleAds,               getAllAds,                createAds,
-  deleteAds,                  updateAds,                getAllDiscounts,          getAllDiscountsAgree,
-  updateDiscountStatus,       getAllCashBoxStudent,     getAllCashBoxTeacher,
-  getSingleCashBoxStudent,    getSingleCashBoxTeacher,  createRefundStudent,
+  getSingleAds, getAllAds, createAds,
+  deleteAds, updateAds, getAllDiscounts, getAllDiscountsAgree,
+  updateDiscountStatus, getAllCashBoxStudent, getAllCashBoxTeacher,
+  getSingleCashBoxStudent, getSingleCashBoxTeacher, createRefundStudent,
   createRefundTeacher,
-  getAllAdsDeparment,         getSingleAdsDepartment,   createAdsDepartment,
-  deleteAdsDepartment,        updateAdsDepartment,      updateAdsStatus,
-  updateCareerStatus,         sendWhatsapp,             sendWhatsappWaitingSendMessage,
+  getAllAdsDeparment, getSingleAdsDepartment, createAdsDepartment,
+  deleteAdsDepartment, updateAdsDepartment, updateAdsStatus,
+  updateCareerStatus, sendWhatsapp, sendWhatsappWaitingSendMessage,
   getWhatsData,
 };

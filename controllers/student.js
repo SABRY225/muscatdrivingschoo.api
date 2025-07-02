@@ -7,7 +7,6 @@ const {
   CurriculumTeacher,  Days,         Language,
   Subject,        Wallet,           Session,
   CurriculumLevel,FinancialRecord,  TeacherTypes,
-  // Developer by eng.reem.shwky@gmail.com
   TrainingCategoryType,   TeacherLimits,            TeacherLecture,
   TeacherLesson,          LimeType,                 ParentStudent,
   Package,                StudentPackage,           Tests,
@@ -28,7 +27,7 @@ const fs = require("fs");
 const CC = require("currency-converter-lt");
 const TeacherSubject = require("../models/TeacherSubject");
 const Rate = require("../models/Rate");
-const { Op } = require("sequelize");
+const { Op, fn , col, literal} = require("sequelize");
 const { Sequelize } = require("sequelize");
 const { db } = require("../firebaseConfig");
 
@@ -52,91 +51,68 @@ const {
 } = require("../services/shared/notification.service");
 const { sendLessonEmail } = require("../utils/sendEmailLessonMeeting");
 const Evaluations = require("../models/Evaluation");
+const Lessons = require("../models/Lesson");
 dotenv.config();
 
 const signUp = async (req, res) => {
-  const { email, phoneNumber, name, location, language } = req.body;
-  await validateStudent.validate({ email, name, location });
+  try {
+    const { email, phoneNumber, name, location, language } = req.body;
+    await validateStudent.validate({ email, name, location });
 
-  const teacher = await Teacher.findOne({
-    where: {
-      email,
-      isRegistered: true,
-    },
-  });
+    const existsMsg = {
+      arabic: "عفوا ، الحساب غير صالح لإنشاء، نرجو مراجعة بياناتك مره أخرى لكي يتم إنشاء حسابك بشكل ناجح",
+      english: "Sorry, the account is not valid for creation. Please review your data again so that your account can be created successfully.",
+    };
 
-  const student = await Student.findOne({
-    where: {
-      email,
-      isRegistered: true,
-    },
-  });
+    const teacher = await Teacher.findOne({ where: { email, isRegistered: true } });
+    const student = await Student.findOne({ where: { email, isRegistered: true } });
+    const parent = await Parent.findOne({ where: { email } });
 
-  const parent = await Parent.findOne({
-    where: {
-      email,
-    },
-  });
+    if (teacher || student || parent) throw serverErrs.BAD_REQUEST(existsMsg);
 
-  if (teacher)
-    throw serverErrs.BAD_REQUEST({
-     //arabic: "الايميل مستخدم من قبل",
-     // english: "email is already used",
-     arabic      : "عفوا ، الحساب غير صالح لانشاء ، نرجو مراجعه بياناتك مره اخري لكي يتم انشاء حسابك بشكل ناجح",
-      english     : "Sorry, the account is not valid for creation. Please review your data again so that your account can be created successfully.",
+    const code = generateRandomCode();
+
+    const existStudent = await Student.findOne({ where: { email, isRegistered: false } });
+
+    if (existStudent) {
+      await existStudent.update({ registerCode: code, phoneNumber, name, location });
+    } else {
+      await Student.create({ email, name, location, registerCode: code, phoneNumber });
+    }
+
+    const mailOptions = generateConfirmEmailBody(code, language, email);
+    const smsOptions = {
+      body: generateConfirmEmailSMSBody(language, code),
+      to: phoneNumber,
+    };
+
+    sendEmail(mailOptions, smsOptions);
+
+    try {
+      await sendWhatsAppVerificationCode(phoneNumber, code, language);
+    } catch (err) {
+      console.error("خطأ أثناء إرسال رسالة واتساب:", err.message);
+    }
+
+    res.send({
+      status: 201,
+      msg: {
+        arabic: "تم ارسال الإيميل بنجاح",
+        english: "Email sent successfully",
+      },
     });
-  if (student)
-    throw serverErrs.BAD_REQUEST({
-      //arabic: "الايميل مستخدم من قبل",
-      //english: "email is already used",
-      arabic      : "عفوا ، الحساب غير صالح لانشاء ، نرجو مراجعه بياناتك مره اخري لكي يتم انشاء حسابك بشكل ناجح",
-      english     : "Sorry, the account is not valid for creation. Please review your data again so that your account can be created successfully.",
-    });
-  if (parent)
-    throw serverErrs.BAD_REQUEST({
-      //arabic: "الايميل مستخدم من قبل",
-      //english: "email is already used",
-      arabic      : "عفوا ، الحساب غير صالح لانشاء ، نرجو مراجعه بياناتك مره اخري لكي يتم انشاء حسابك بشكل ناجح",
-      english     : "Sorry, the account is not valid for creation. Please review your data again so that your account can be created successfully.",
-    });
-
-  const code = generateRandomCode();
-  const existStudent = await Student.findOne({
-    where: {
-      email,
-      isRegistered: false,
-    },
-  });
-  if (existStudent) await existStudent.update({ registerCode: code });
-  else {
-    const newStudent = await Student.create({
-      email,  name,  location, registerCode: code, phoneNumber,
-    });
-    await newStudent.save();
-  }
-
-  const mailOptions = generateConfirmEmailBody(code, language, email);
-  const smsOptions = {
-    body: generateConfirmEmailSMSBody(language, code),
-    to: phoneNumber,
-  };
-  sendEmail(mailOptions, smsOptions);
-   try {
-    await sendWhatsAppVerificationCode(
-      phoneNumber,    // رقم الهاتف
-      code,           // كود التحقق
-      language        // اللغة (ar أو en_US)
-    );
   } catch (err) {
-    console.error('خطأ أثناء إرسال رسالة واتساب كود التأكيد:', err.message, err);
+    console.error("Signup Error:", err);
+    res.status(err?.status || 500).send({
+      status: err?.status || 500,
+      msg: err?.message || {
+        arabic: "حدث خطأ غير متوقع",
+        english: "An unexpected error occurred",
+      },
+    });
   }
-
-  res.send({
-    status: 201,
-    msg: { arabic: "تم ارسال الإيميل بنجاح", english: "successful send email" },
-  });
-  //res.send({ status: 201, msg: "successful send email" });
 };
+
 
 // إرسال رسالة ترحيبية عبر واتساب بعد التسجيل النهائي (عند تعيين كلمة المرور)
 // مضاف فعلياً في signPassword
@@ -1956,7 +1932,6 @@ const getEvaluationsByStudent = async (req, res) => {
   }
 };
 
-// new
 const checkStudentSubscription = async (req, res) => {
   try {
     const { StudentId, type,val } = req.params;
@@ -2021,8 +1996,187 @@ const checkStudentSubscription = async (req, res) => {
     });
   }
 };
+
+const getStudentStats = async (req, res) => {
+  try {
+    const { StudentId } = req.params;
+    const currentYear = new Date().getFullYear();
+
+    // خطوة 1: اجلب البيانات من قاعدة البيانات
+const sessions = await Session.findAll({
+  where: {
+    isPaid: true,
+    StudentId: StudentId,
+    createdAt: {
+      [Op.between]: [
+        new Date(`${currentYear}-01-01T00:00:00Z`),
+        new Date(`${currentYear}-12-31T23:59:59Z`)
+      ]
+    }
+  },
+  attributes: [
+    [fn("MONTH", col("createdAt")), "month"],
+    [fn("COUNT", col("id")), "total"]
+  ],
+  group: [literal("month")],
+  order: [[literal("month"), "ASC"]]
+});
+
+// تجهيز بيانات 12 شهر
+const monthlyData = Array.from({ length: 12 }, (_, i) => {
+  const monthNum = i + 1;
+  const found = sessions.find(
+    s => parseInt(s.dataValues.month) === monthNum
+  );
+
+  return {
+    month: `${monthNum.toString().padStart(2, "0")}`,
+    Lessons: found ? parseInt(found.dataValues.total) : 0
+  };
+});
+
+const sessionsNumber = await Session.count({
+    where: {
+      isPaid: true,
+      StudentId:StudentId
+    },
+  });
+
+
+
+
+  const lessonWaiting = await Lessons.count({
+    where: {
+      StudentId:StudentId,
+      status: "pending",
+    },
+  });
+  const lessonOnline = await Lessons.count({
+    where: {
+      StudentId:StudentId,
+      status: "approved",
+    },
+  });
+  const lessonCanceled = await Lessons.count({
+    where: {
+      StudentId:StudentId,
+      status: "canceled",
+    },
+  });
+
+  const teachers = await Teacher.count({
+    include: [
+      {
+        model: Session,
+        on: Session.StudentId,
+        where: {
+          StudentId: StudentId,
+        },
+      },
+    ],
+  });
+
+  const lessonsByInstructor = await Teacher.findAll({
+  include: [
+    {
+      model: Session,
+      where: {
+        StudentId: StudentId, 
+        isPaid:true
+      },
+      attributes: [], // لا ترجع كل تفاصيل الجلسة
+    },
+  ],
+  attributes: [
+    'id',
+    'firstName', 
+    'lastName', 
+    [Sequelize.fn('COUNT', Sequelize.col('Sessions.id')), 'sessionsCount']
+  ],
+  group: ['Teacher.id'], // مهم جداً لتجميع النتائج
+});
+
+
+  const today = new Date();
+const dayOfWeek = today.getDay(); // 0 (Sun) - 6 (Sat)
+const diffToMonday = (dayOfWeek + 6) % 7; // احسب كم ترجع ليوم الاثنين
+const startOfWeek = new Date(today);
+startOfWeek.setDate(today.getDate() - diffToMonday);
+startOfWeek.setHours(0, 0, 0, 0);
+
+const endOfWeek = new Date(startOfWeek);
+endOfWeek.setDate(startOfWeek.getDate() + 6);
+endOfWeek.setHours(23, 59, 59, 999);
+const sessionsThisWeek = await Session.count({
+  where: {
+    isPaid: true,
+    teacherAccept: true,
+    StudentId: StudentId,
+    createdAt: {
+      [Op.between]: [startOfWeek, endOfWeek],
+    },
+  },
+});
+
+const completedLessons = await Session.count({
+  where: {
+    isPaid: true,
+    teacherAccept: true,
+    studentAccept: true,
+    StudentId: StudentId,
+  },
+});
+
+  const packagePay= await StudentPackage.count({
+    where: {
+      isPaid: true ,
+    },
+  });
+  const testPay= await StudentTest.count({
+    where: {
+      isPaid: true ,
+    },
+  });
+  const lecturePay= await StudentLecture.count({
+    where: {
+      isPaid: true ,
+    },
+  });
+  const discountPay= await StudentDiscount.count({
+    where: {
+      isPaid: true ,
+    },
+  });
+
+    return res.status(200).json({
+      teachers,
+      packagePay,
+      discountPay,
+      sessionsThisWeek,
+      sessionsNumber,
+      testPay,
+      lecturePay,
+      lessonCanceled,
+      lessonOnline,
+      lessonWaiting,
+      completedLessons,
+      lessonsChart:monthlyData,
+      bookingsByType:[
+        { name: "Package", value: packagePay },
+        { name: "Test", value: testPay },
+        { name: "Lecture", value: lecturePay },
+        { name: "Lesson", value: lessonOnline },
+      ],
+      lessonsByInstructor,
+    });
+  } catch (error) {
+    console.error("Error fetching monthly revenue:", error);
+    return res.status(500).json({ error: "Server error" });
+  }
+};
 module.exports = {
   checkStudentSubscription,
+  getStudentStats,
   getEvaluationsByStudent,
   getLecturesWithQuestions,
   getSessionsByStudent,
