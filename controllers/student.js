@@ -63,22 +63,25 @@ const signUp = async (req, res) => {
       arabic: "عفوا ، الحساب غير صالح لإنشاء، نرجو مراجعة بياناتك مره أخرى لكي يتم إنشاء حسابك بشكل ناجح",
       english: "Sorry, the account is not valid for creation. Please review your data again so that your account can be created successfully.",
     };
+const errorMessage2 = {
+      arabic:
+         "عفوا , هذا البريد مستخدم سابقا",
+      english:
+        "Sorry, this email address has already been used.",
+    };
 
-    const teacher = await Teacher.findOne({ where: { email, isRegistered: true } });
-    const student = await Student.findOne({ where: { email, isRegistered: true } });
-    const parent = await Parent.findOne({ where: { email } });
+    // 🔒 التأكد أن الإيميل غير مستخدم في أي جدول
+    const [teacher, student, parent] = await Promise.all([
+      Teacher.findOne({ where: { email } }),
+      Student.findOne({ where: { email } }),
+      Parent.findOne({ where: { email } }),
+    ]);
 
-    if (teacher || student || parent) throw serverErrs.BAD_REQUEST(existsMsg);
+    if (teacher || student || parent) throw serverErrs.BAD_REQUEST(errorMessage2);
 
     const code = generateRandomCode();
 
-    const existStudent = await Student.findOne({ where: { email, isRegistered: false } });
-
-    if (existStudent) {
-      await existStudent.update({ registerCode: code, phoneNumber, name, location });
-    } else {
-      await Student.create({ email, name, location, registerCode: code, phoneNumber });
-    }
+    await Student.create({ email, name, location, registerCode: code, phoneNumber });
 
     const mailOptions = generateConfirmEmailBody(code, language, email);
     const smsOptions = {
@@ -112,11 +115,6 @@ const signUp = async (req, res) => {
     });
   }
 };
-
-
-// إرسال رسالة ترحيبية عبر واتساب بعد التسجيل النهائي (عند تعيين كلمة المرور)
-// مضاف فعلياً في signPassword
-
 
 const verifyCode = async (req, res) => {
   const { registerCode, email, long, lat } = req.body;

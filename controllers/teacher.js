@@ -70,34 +70,32 @@ const signUp = async (req, res, next) => {
       english:
         "Sorry, the account is not valid. Please review your data again so that your account can be created successfully.",
     };
+    const errorMessage2 = {
+      arabic:
+         "عفوا , هذا البريد مستخدم سابقا",
+      english:
+        "Sorry, this email address has already been used.",
+    };
 
-    // تحقق من الحسابات الموجودة
-    const [teacher, student, parent] = await Promise.all([
-      Teacher.findOne({ where: { email, isRegistered: true } }),
-      Student.findOne({ where: { email, isRegistered: true } }),
+    // التحقق من وجود البريد في أي حساب آخر (سواء كان مكتمل التسجيل أو لا)
+    const [teacherExists, studentExists, parentExists] = await Promise.all([
+      Teacher.findOne({ where: { email } }),
+      Student.findOne({ where: { email } }),
       Parent.findOne({ where: { email } }),
     ]);
 
-    if (teacher || student || parent) {
-      throw serverErrs.BAD_REQUEST(errorMessage);
+    if (teacherExists || studentExists || parentExists) {
+      throw serverErrs.BAD_REQUEST(errorMessage2);
     }
 
     const code = generateRandomCode();
 
-    // لو المعلم موجود بالفعل ولم يسجل
-    const existTeacher = await Teacher.findOne({
-      where: { email, isRegistered: false },
+    // إنشاء حساب جديد للمعلم
+    await Teacher.create({
+      email,
+      phone: phoneNumber,
+      registerCode: code,
     });
-
-    if (existTeacher) {
-      await existTeacher.update({ registerCode: code });
-    } else {
-      await Teacher.create({
-        email,
-        phone: phoneNumber,
-        registerCode: code,
-      });
-    }
 
     // إرسال كود التفعيل
     try {
@@ -111,11 +109,11 @@ const signUp = async (req, res, next) => {
       await sendWhatsAppVerificationCode(phoneNumber, code, language);
     } catch (sendErr) {
       console.error("Error sending verification code:", sendErr.message);
-      // يمكنك تجاهل الخطأ أو إعلام المستخدم
+      // يمكنك تجاهل الخطأ أو إعلام المستخدم حسب الحاجة
     }
 
     res.status(201).send({
-      status:201,
+      status: 201,
       msg: {
         arabic: "تم ارسال الإيميل بنجاح",
         english: "Email sent successfully",
@@ -126,6 +124,7 @@ const signUp = async (req, res, next) => {
     next(error);
   }
 };
+
 
 
 const verifyCode = async (req, res) => {
