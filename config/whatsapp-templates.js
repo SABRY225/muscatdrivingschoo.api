@@ -158,7 +158,30 @@ const BOOKING_TEMPLATES = {
   LESSON_ENDED: "lesson_ended_student_ar",
 };
 
-// قوالب الشكاوى والدعم - Complaints & Support Templates
+// قوالب إشعارات الأدمن - Admin Notifications Templates
+const ADMIN_TEMPLATES = {
+  // إشعار حجز جديد
+  NEW_BOOKING_NOTIFICATION_AR: "new_booking_notification_ar",
+  NEW_BOOKING_NOTIFICATION_EN: "new_booking_notification_en",
+  
+  // إشعار دفع جديد
+  NEW_PAYMENT_NOTIFICATION_AR: "new_payment_notification_ar",
+  NEW_PAYMENT_NOTIFICATION_EN: "new_payment_notification_en",
+  
+  // إشعار شكوى جديدة
+  NEW_COMPLAINT_NOTIFICATION_AR: "new_complaint_notification_ar",
+  NEW_COMPLAINT_NOTIFICATION_EN: "new_complaint_notification_en",
+  
+  // إشعار تنبيه عام
+  ADMIN_ALERT_AR: "admin_alert_ar",
+  ADMIN_ALERT_EN: "admin_alert_en",
+  
+  // إشعار مستخدم جديد للأدمن
+  NEW_USER_ADMIN_NOTIFICATION_AR: "new_user_admin_notification_ar",
+  NEW_USER_ADMIN_NOTIFICATION_EN: "new_user_admin_notification_en",
+};
+
+// قوالب الشكاوى والمشاكل - Complaints & Issues Templates
 const COMPLAINT_TEMPLATES = {
   // تقديم الشكوى
   COMPLAINT_SUBMITTED_AR: "complaint_submitted_ar",
@@ -171,13 +194,6 @@ const COMPLAINT_TEMPLATES = {
   // إشعار الأدمن بشكوى جديدة
   NEW_COMPLAINT_ADMIN_AR: "new_complaint_admin_ar",
   NEW_COMPLAINT_ADMIN_EN: "new_complaint_admin_en",
-};
-
-// قوالب الإشعارات الإدارية - Admin Notifications Templates
-const ADMIN_TEMPLATES = {
-  // إشعار مستخدم جديد للأدمن
-  NEW_USER_ADMIN_NOTIFICATION_AR: "new_user_admin_notification_ar",
-  NEW_USER_ADMIN_NOTIFICATION_EN: "new_user_admin_notification_en",
 };
 
 // قوالب عامة وتجريبية - General & Testing Templates
@@ -281,9 +297,9 @@ module.exports = {
   // الفئات المنفصلة
   VERIFICATION_TEMPLATES,
   PAYMENT_TEMPLATES,
-  LESSON_TEMPLATES,
   BOOKING_TEMPLATES,
   COMPLAINT_TEMPLATES,
+  LESSON_TEMPLATES,
   ADMIN_TEMPLATES,
   GENERAL_TEMPLATES,
 

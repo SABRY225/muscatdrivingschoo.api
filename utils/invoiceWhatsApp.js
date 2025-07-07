@@ -1,4 +1,4 @@
-const { sendWhatsAppTemplate } = require("./whatsapp");
+const { sendWhatsAppTemplate, formatArabicDateTime } = require("./whatsapp");
 const { PAYMENT_TEMPLATES } = require("../config/whatsapp-templates");
 
 /**
@@ -54,7 +54,7 @@ async function sendInvoiceWhatsApp({
           totalAmount.toString(),
           currency,
           invoiceNumber,
-          new Date().toLocaleDateString(),
+          formatArabicDateTime(new Date()),
           paymentMethod === "thawani" ? "ثواني" : "المحفظة",
         ];
         break;
@@ -63,12 +63,35 @@ async function sendInvoiceWhatsApp({
           language === "ar"
             ? PAYMENT_TEMPLATES.LESSON_PAYMENT_INVOICE_AR
             : PAYMENT_TEMPLATES.LESSON_PAYMENT_INVOICE_EN;
+        
+        // الحصول على تفاصيل الحصة من المعلمات الإضافية
+        const lessonType = sessionDetails?.lessonType || 'قيادة عادية';
+        const lessonDate = sessionDetails?.date ? new Date(sessionDetails.date) : new Date();
+        const lessonTime = sessionDetails?.time || '10:00 ص';
+        const instructorName = sessionDetails?.instructorName || 'مدرب المدرسة';
+        const location = sessionDetails?.location || 'مقر المدرسة';
+        
+        // ملاحظة: القالب يتوقع 8 معلمات
+        // ترتيب المتغيرات المطلوب:
+        // 1. اسم الطالب
+        // 2. اسم المعلم
+        // 3. نوع الدرس
+        // 4. مدة الدرس (نستخدم ساعة واحدة كقيمة افتراضية)
+        // 5. المبلغ الإجمالي
+        // 6. رقم الفاتورة
+        // 7. التاريخ والوقت
+        // 8. مكان التدريب
+        const lessonDuration = '1 ساعة'; // يمكن تعديلها حسب الحاجة
+        
         variables = [
-          customerName,
-          totalAmount.toString(),
-          currency,
-          invoiceNumber,
-          new Date().toLocaleDateString(),
+          customerName, // 1. اسم الطالب
+          instructorName, // 2. اسم المدرب
+          lessonType, // 3. نوع الدرس (قيادة نهارية/ليلية/طرق سريعة)
+          lessonDuration, // 4. مدة الدرس
+          `${totalAmount} ${currency}`, // 5. المبلغ الإجمالي مع العملة
+          invoiceNumber, // 6. رقم الفاتورة
+          `${formatArabicDateTime(lessonDate)} - ${lessonTime}`, // 7. التاريخ والوقت
+          location // 8. مكان التدريب
         ];
         break;
       default:

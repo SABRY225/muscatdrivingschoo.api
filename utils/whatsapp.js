@@ -1,5 +1,5 @@
 const axios = require("axios");
-const WhatsappMessage = require("../models/WhatsappMessage"); // تأكد من وجوده
+const WhatsappMessage = require("../models/WhatsappMessage");
 const {
   getTemplateName,
   templateExists,
@@ -7,6 +7,39 @@ const {
 } = require("../config/whatsapp-templates");
 const TOKEN = process.env.WHATSAPP_TOKEN;
 const PHONE_NUMBER_ID = process.env.WHATSAPP_PHONE_NUMBER_ID;
+
+/**
+ * تنسيق التاريخ والوقت بالعربية
+ */
+function formatArabicDateTime(date = new Date()) {
+  const options = {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+    timeZone: 'Asia/Muscat',
+    locale: 'ar-OM'
+  };
+  
+  // تنسيق التاريخ والوقت
+  const formattedDate = date.toLocaleDateString('ar-OM', options);
+  
+  // تحويل الأرقام الإنجليزية إلى عربية
+  return formattedDate
+    .replace(/0/g, '٠')
+    .replace(/1/g, '١')
+    .replace(/2/g, '٢')
+    .replace(/3/g, '٣')
+    .replace(/4/g, '٤')
+    .replace(/5/g, '٥')
+    .replace(/6/g, '٦')
+    .replace(/7/g, '٧')
+    .replace(/8/g, '٨')
+    .replace(/9/g, '٩');
+}
 
 /**
  * فحص الأخطاء المتعلقة بعدد المعاملات
@@ -94,6 +127,30 @@ async function sendWhatsAppTemplate({
     template,
   };
   try {
+    // تنسيق التاريخ والوقت قبل إرسال الرسالة
+    const currentDate = new Date();
+    const formattedDate = formatArabicDateTime(currentDate);
+    
+    // تحديث المتغيرات لتضمين التاريخ المنسق
+    const updatedVariables = [...variables];
+    
+    // البحث عن المتغير الذي قد يحتوي على تاريخ غير منسق
+    const dateVariableIndex = updatedVariables.findIndex(v => 
+      v && (v.includes('T') || v.includes('Z') || v.match(/\d{4}-\d{2}-\d{2}/))
+    );
+    
+    if (dateVariableIndex !== -1) {
+      updatedVariables[dateVariableIndex] = formattedDate;
+    }
+    
+    // تحديث الجسم مع المتغيرات المحدثة
+    if (updatedVariables.length > 0) {
+      body.template.components = [{
+        type: "body",
+        parameters: updatedVariables.map((text) => ({ type: "text", text })),
+      }];
+    }
+    
     const res = await axios.post(url, body, {
       headers: {
         Authorization: `Bearer ${TOKEN}`,
@@ -101,12 +158,13 @@ async function sendWhatsAppTemplate({
       },
       timeout: 3000,
     });
+    
     console.log("✅ WhatsApp message sent:", res.data);
     await WhatsappMessage.create({
       template_name: templateName,
       phone_number: to,
       recipient_name: recipientName,
-      sent_at: new Date(),
+      sent_at: currentDate,
     });
     return res.data;
   } catch (error) {
@@ -164,6 +222,16 @@ async function sendWhatsAppTextMessage({
     text: { body: message },
   };
   try {
+    // تنسيق التاريخ والوقت للرسائل النصية
+    const currentDate = new Date();
+    const formattedDate = formatArabicDateTime(currentDate);
+    
+    // تحديث نص الرسالة ليتضمن التاريخ المنسق إذا كان يحتوي على تاريخ
+    if (message && (message.includes('T') || message.includes('Z') || message.match(/\d{4}-\d{2}-\d{2}/))) {
+      message = message.replace(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z?/, formattedDate);
+      body.text.body = message;
+    }
+    
     const res = await axios.post(url, body, {
       headers: {
         Authorization: `Bearer ${TOKEN}`,
@@ -171,12 +239,13 @@ async function sendWhatsAppTextMessage({
       },
       timeout: 3000,
     });
+    
     console.log("✅ WhatsApp text message sent:", res.data);
     await WhatsappMessage.create({
       template_name: "text",
       phone_number: to,
       recipient_name: recipientName,
-      sent_at: new Date(),
+      sent_at: currentDate,
     });
     return res.data;
   } catch (error) {
@@ -210,4 +279,5 @@ async function sendWhatsAppTextMessage({
 module.exports = {
   sendWhatsAppTemplate,
   sendWhatsAppTextMessage,
+  formatArabicDateTime,
 };
