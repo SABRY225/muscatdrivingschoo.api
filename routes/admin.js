@@ -88,7 +88,8 @@ const {
   getAllTeacher,
   getAllParent,
   sendBulkMessages,
-  AdminStats
+  AdminStats,
+  getCertificates
 } = require("../controllers/admin");
 const checkUserAuth = require("../middlewares/checkUserAuth");
 const logout = require("../middlewares/logout");
@@ -291,7 +292,7 @@ adminRouter.delete(
 );
 
 adminRouter.delete("/deleteStudent/:StudentId",  verifyToken,  checkUserAuth("admin"),  errorCatcher(deleteStudent));
-adminRouter.get("/profitRatio",   verifyToken,    checkUserAuth("admin"), errorCatcher(getProfitRatio));
+adminRouter.get("/profitRatio",   errorCatcher(getProfitRatio));
 
 
 adminRouter.delete("/level/:levelId", verifyToken,checkUserAuth("admin"),errorCatcher(deleteLevel));
@@ -481,5 +482,6 @@ adminRouter.get("/getall/student", getAllStudent);
 adminRouter.get("/getall/parent", getAllParent);
 adminRouter.post("/send-bulk-messages", verifyToken, checkUserAuth("admin"), errorCatcher(sendBulkMessages))
 adminRouter.get("/stats/charts", errorCatcher(AdminStats))
+adminRouter.get("/certificates",verifyToken, checkUserAuth("admin"), errorCatcher(getCertificates))
 
 module.exports = adminRouter;

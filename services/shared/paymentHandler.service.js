@@ -31,7 +31,7 @@ exports.handleThawaniPaymentCharge = async (data, newPrice, createEntityFn) => {
   const { FRONTEND_URL, THAWANI_KEY, THAWANI_PUBLISHABLE_KEY } = process.env;
 
   const response = await fetch(
-    "https://checkout.thawani.om/api/v1/checkout/session",
+    "https://uatcheckout.thawani.om/api/v1/checkout/session",
     {
       method: "POST",
       headers: {
@@ -55,7 +55,7 @@ exports.handleThawaniPaymentCharge = async (data, newPrice, createEntityFn) => {
   if (result.success && result.code === 2004) {
     const created = await createEntityFn({
       StudentId: data.StudentId,
-      price,
+      price:newPrice,
       currency: "OMR",
       isPaid: false,
       typeAr: "إيداع",
@@ -64,10 +64,11 @@ exports.handleThawaniPaymentCharge = async (data, newPrice, createEntityFn) => {
     });
     created.sessionId = result.data.session_id;
     global.session_id = result.data.session_id;
+    global.typePay = "charge";
     await created.save();
 
     return {
-      data: `https://checkout.thawani.om/pay/${result.data.session_id}?key=${THAWANI_PUBLISHABLE_KEY}`,
+      data: `https://uatcheckout.thawani.om/pay/${result.data.session_id}?key=${THAWANI_PUBLISHABLE_KEY}`,
       msg: {
         arabic: "تم الحجز من خلال ثواني",
         english: "Booking with thawani",
@@ -82,7 +83,7 @@ exports.handleThawaniPayment = async (data, newPrice, createEntityFn) => {
   const { FRONTEND_URL, THAWANI_KEY, THAWANI_PUBLISHABLE_KEY } = process.env;
 
   const response = await fetch(
-    "https://checkout.thawani.om/api/v1/checkout/session",
+    "https://uatcheckout.thawani.om/api/v1/checkout/session",
     {
       method: "POST",
       headers: {
@@ -111,7 +112,7 @@ exports.handleThawaniPayment = async (data, newPrice, createEntityFn) => {
     await created.save();
 
     return {
-      data: `https://checkout.thawani.om/pay/${result.data.session_id}?key=${THAWANI_PUBLISHABLE_KEY}`,
+      data: `https://uatcheckout.thawani.om/pay/${result.data.session_id}?key=${THAWANI_PUBLISHABLE_KEY}`,
       msg: {
         arabic: "تم الحجز من خلال ثواني",
         english: "Booking with thawani",
@@ -377,22 +378,62 @@ exports.handlePointsPayment = async (data, newPrice, createEntityFn, type) => {
 };
 
 exports.handleconfirmePaymentCharge = async (language) => {
+
+};
+
+exports.handleconfirmePayment = async (language) => {
+  const { THAWANI_KEY } = process.env;
   let options = {
     method: "GET",
     headers: {
       "Content-Type": "application/json",
-      "thawani-api-key": "V27floHDuAQzb4fVaAT2isXTtSbcqm",
+      "thawani-api-key": THAWANI_KEY,
     },
   };
-
-  let url = `https://checkout.thawani.om/api/v1/checkout/session/${global.session_id}`;
+   console.log(global.session_id);
+   
+  let url = `https://uatcheckout.thawani.om/api/v1/checkout/session/${global.session_id}`;
 
   const response = await fetch(url, options);
   const data = await response.json();
-
+ console.log(data);
+ 
   if (data.data.payment_status != "paid") {
-    throw serverErrs.BAD_REQUEST("charge didn't pay");
+    throw serverErrs.BAD_REQUEST("payment didn't succeed");
   }
+
+  let session;
+  if (global.typePay == "lesson_booking") {
+    session = await Session.findOne({
+      where: {
+        sessionId: global.session_id,
+      },
+    });
+  } else if (global.typePay == "test_booking") {
+    session = await StudentTest.findOne({
+      where: {
+        sessionId: global.session_id,
+      },
+    });
+  } else if (global.typePay == "lecture_booking") {
+    session = await StudentLecture.findOne({
+      where: {
+        sessionId: global.session_id,
+      },
+    });
+  } else if (global.typePay == "discount_booking") {
+    session = await StudentDiscount.findOne({
+      where: {
+        sessionId: global.session_id,
+      },
+    });
+  } else if (global.typePay == "package_booking") {
+    session = await StudentPackage.findOne({
+      where: {
+        sessionId: global.session_id,
+      },
+    });
+  }else if(global.typePay == "charge"){
 
   const wallet = await Wallet.findOne({
     where: {
@@ -480,57 +521,6 @@ exports.handleconfirmePaymentCharge = async (language) => {
     data: student,
     msg: { arabic: "تم الدفع بنجاح", english: "successful charging" },
   });
-};
-
-exports.handleconfirmePayment = async (language) => {
-  let options = {
-    method: "GET",
-    headers: {
-      "Content-Type": "application/json",
-      "thawani-api-key": "V27floHDuAQzb4fVaAT2isXTtSbcqm",
-    },
-  };
-
-  let url = `https://checkout.thawani.om/api/v1/checkout/session/${global.session_id}`;
-
-  const response = await fetch(url, options);
-  const data = await response.json();
-
-  if (data.data.payment_status != "paid") {
-    throw serverErrs.BAD_REQUEST("payment didn't succeed");
-  }
-
-  let session;
-  if (global.typePay == "lesson_booking") {
-    session = await Session.findOne({
-      where: {
-        sessionId: global.session_id,
-      },
-    });
-  } else if (global.typePay == "test_booking") {
-    session = await StudentTest.findOne({
-      where: {
-        sessionId: global.session_id,
-      },
-    });
-  } else if (global.typePay == "lecture_booking") {
-    session = await StudentLecture.findOne({
-      where: {
-        sessionId: global.session_id,
-      },
-    });
-  } else if (global.typePay == "discount_booking") {
-    session = await StudentDiscount.findOne({
-      where: {
-        sessionId: global.session_id,
-      },
-    });
-  } else if (global.typePay == "package_booking") {
-    session = await StudentPackage.findOne({
-      where: {
-        sessionId: global.session_id,
-      },
-    });
   }
 
   const { StudentId } = session;

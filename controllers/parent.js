@@ -269,7 +269,7 @@ const editImageParent = async (req, res) => {
         });
     });
   };
-  if (!req.file) {
+  if (!req.files) {
     throw serverErrs.BAD_REQUEST({
       arabic: "الصورة غير موجودة",
       english: "Image not found",
@@ -279,7 +279,7 @@ const editImageParent = async (req, res) => {
   if (obj_parent.image) {
     clearImage(obj_parent.image);
   }
-  await obj_parent.update({ image: req.file.filename });
+  await obj_parent.update({ image: req.files[0].filename });
   res.send({
     status: 201,
     obj_parent,

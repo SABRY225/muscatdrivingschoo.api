@@ -1,6 +1,7 @@
 const { serverErrs } = require("../middlewares/customError");
 const {
   AdsTeachers, AdsDepartment, AdsImages, Guest,
+  Teacher,
 } = require("../models");
 
 const createAdsTeachersStepOne = async (req, res) => {
@@ -44,30 +45,35 @@ const createAdsTeachersStepOne = async (req, res) => {
 };
 
 const createAdsTeachersStepTwo = async (req, res) => {
-  try {
+try {
     const { AdsId } = req.params;
-    const adsTeachers = await AdsTeachers.findOne({ id: AdsId });
-    if (!adsTeachers)
-      throw serverErrs.BAD_REQUEST("Ad not found");
+
+    const ad = await AdsTeachers.findOne({ where: { id: AdsId } });
+    if (!ad) {
+      return res.status(400).json({ msg: "Ad not found" });
+    }
+
+    if (!req.files) {
+      return res.status(400).json({ msg: "No image uploaded" });
+    }
 
     const image = req.files[0].filename;
-    const newAdsImages = await AdsImages.create({
+
+    const newImage = await AdsImages.create({
       AdsTeacherId: AdsId,
       image,
     });
 
-    res.status(201).send({
-      newAdsImages,
-      status: 201,
+    res.status(201).json({
+      data: newImage,
       msg: {
         arabic: "تم رفع الصورة بنجاح",
         english: "Image uploaded successfully",
       },
     });
   } catch (error) {
-    res.status(500).send({
-      error: error.message
-    })
+    console.error("Upload Error:", error);
+    res.status(500).json({ msg: "Server error", error: error.message });
   }
 };
 
@@ -132,8 +138,8 @@ const getAdsTeachersSingle = async (req, res) => {
 const getAdsTeachersAll = async (req, res) => {
   const { TeacherId } = req.params;
 
-  const guest = await Guest.findByPk(TeacherId);
-  if (!guest)
+  const teacher = await Teacher.findByPk(TeacherId);
+  if (!teacher)
     throw serverErrs.BAD_REQUEST("Guest not found");
 
   const listAdsTeachers = await AdsTeachers.findAll({

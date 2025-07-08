@@ -1,6 +1,6 @@
 const { handleconfirmePayment } = require("../shared/paymentHandler.service");
 
 exports.confirmePayment = async (data) => {
-    const { language } = req.body;
+    const { language } = data;
     return await handleconfirmePayment(language);
 };

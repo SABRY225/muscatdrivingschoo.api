@@ -518,7 +518,7 @@ const editImageStudent = async (req, res) => {
         });
     });
   };
-  if (!req.file) {
+  if (!req.files) {
     throw serverErrs.BAD_REQUEST({
       arabic: "الصورة غير موجودة",
       english: "Image not found",
@@ -528,7 +528,7 @@ const editImageStudent = async (req, res) => {
   if (student.image) {
     clearImage(student.image);
   }
-  await student.update({ image: req.file.filename });
+  await student.update({ image: req.files[0].filename });
   res.send({
     status: 201,
     student,
@@ -674,7 +674,6 @@ const getSingleTeacher = async (req, res) => {
 
 const getStudentCredit = async (req, res) => {
   const { studentId } = req.params;
-  const { currency } = req.query;
   const student = await Student.findOne({
     where: { id: studentId },
     attributes: ["wallet"],
@@ -685,14 +684,6 @@ const getStudentCredit = async (req, res) => {
       arabic: "المدرب غير موجود",
       english: "Invalid studentId! ",
     });
-
-  let currencyConverter = new CC();
-  const newPrice = await currencyConverter
-    .from("OMR")
-    .to(currency)
-    .amount(+student.wallet)
-    .convert();
-  student.wallet = newPrice;
 
   res.send({
     status: 201,

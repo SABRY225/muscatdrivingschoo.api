@@ -476,7 +476,7 @@ const editPhoto = async (req, res) => {
         });
     });
   };
-  if (!req.file) {
+  if (!req.files) {
     throw serverErrs.BAD_REQUEST({
       arabic: "الصورة غير موجودة",
       english: "Image not found",
@@ -486,7 +486,7 @@ const editPhoto = async (req, res) => {
   if (guest.image) {
     clearImage(guest.image);
   }
-  await guest.update({ image: req.file.filename });
+  await guest.update({ image: req.files[0].filename });
   res.send({
     status: 201,
     guest,
@@ -515,7 +515,7 @@ const getCareerByGuest = async (req, res) => {
 
 const createCareer = async (req, res) => {
   const { titleAR, titleEN, country , descriptionAr , descriptionEn , advertiserName , advertiserPhone , CareerDepartmentId , GuestId } = req.body;
-  const image = req.file.filename;
+  const image = req.files[0].filename;
   const objCareerDepartment = await CareerDepartment.findOne({
     where: {
       id : CareerDepartmentId,
@@ -607,11 +607,11 @@ const updateCareer = async (req, res) => {
     });
   }
 
-  if (req.file && objCareer.image) {
+  if (req.files && objCareer.image) {
     clearImage(objCareer.image);
   }
-  if (req.file) {
-    await objCareer.update({ image: req.file.filename });
+  if (req.files) {
+    await objCareer.update({ image: req.files[0].filename });
   }
 
   res.send({
@@ -701,11 +701,11 @@ const createCareerStepTwo = async (req, res) => {
     });
   }
 
-  if (req.file && objCareer.image) {
+  if (req.files && objCareer.image) {
     clearImage(objCareer.image);
   }
-  if (req.file) {
-    await objCareer.update({ image: req.file.filename });
+  if (req.files) {
+    await objCareer.update({ image: req.files[0].filename });
   }
 
   res.send({
@@ -770,7 +770,7 @@ const createAdsStepTwo = async (req, res) => {
       english: "Ads not found",
     });
  
-  const image = req.file.filename;
+  const image = req.files[0].filename;
   console.log("Image Path :- ");
   console.log(image);
 

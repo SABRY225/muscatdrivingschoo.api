@@ -49,6 +49,7 @@ const AdminWallet = require("../models/AdminWallet");
 const { sendEmails } = require("../utils/sendEmails");
 const Messages = require("../models/Messages");
 const StudentLecture = require("../models/StudentLecture");
+const Evaluations = require("../models/Evaluation");
 dotenv.config();
 const signUp = async (req, res) => {
   const { name, email, password } = req.body;
@@ -110,17 +111,21 @@ const login = async (req, res) => {
     });
 
   const { id, name } = admin;
-
   const token = await generateToken({ userId: id, name, role: "admin" });
-  // res.cookie("token", token);
 
-  res.send({
-    status: 201,
-    data: admin,
-    msg: { arabic: "تم تسجيل الدخول بنجاح", english: "successful log in" },
-    token: token,
+  const { password: _, ...adminData } = admin.toJSON();
+
+  res.status(200).send({
+    status: 200,
+    data: adminData,
+    msg: {
+      arabic: "تم تسجيل الدخول بنجاح",
+      english: "Successful log in",
+    },
+    token,
   });
 };
+
 
 const createStudent = async (req, res) => {
   const { email, phoneNumber, name, location, password } = req.body;
@@ -344,7 +349,7 @@ const rejectCheckout = async (req, res) => {
 };
 
 const createSubjectCategory = async (req, res) => {
-  const image = req.file.filename;
+  const image = req.files[0].filename;
   const { titleAR, titleEN } = req.body;
   const newSubjectCategory = await SubjectCategory.create(
     {
@@ -981,11 +986,11 @@ const updateSubCategories = async (req, res) => {
         });
     });
   };
-  if (req.file && subjectCategory.image) {
+  if (req.files && subjectCategory.image) {
     clearImage(subjectCategory.image);
   }
-  if (req.file) {
-    await subjectCategory.update({ image: req.file.filename });
+  if (req.files) {
+    await subjectCategory.update({ image: req.files[0].filename });
   }
   await subjectCategory.update({ titleAR, titleEN });
   res.send({
@@ -2352,7 +2357,7 @@ const deleteStudent = async (req, res) => {
 };
 
 const getProfitRatio = async (req, res) => {
-  const admin = await Admin.findOne({ where: { id: req.user.userId } });
+  const admin = await Admin.findOne({ where: { id: 1} });
   res.send({
     status: 200,
     profitRatio: admin.profitRatio,
@@ -2460,7 +2465,7 @@ const signAbout = async (req, res) => {
 const uploadImage = async (req, res) => {
   const { teacherId } = req.params;
 
-  if (!req.file)
+  if (!req.files)
     throw serverErrs.BAD_REQUEST({
       arabic: " الصورة غير موجودة ",
       english: "Image not exist ",
@@ -2483,10 +2488,10 @@ const uploadImage = async (req, res) => {
   if (teacher.image) {
     clearImage(teacher.image);
   }
-  await teacher.update({ image: req.file.filename });
+  await teacher.update({ image: req.files[0].filename });
   res.send({
     status: 201,
-    data: req.file.filename,
+    data: req.files[0].filename,
     msg: {
       arabic: "تم إدراج الصورة بنجاح",
       english: "uploaded image successfully",
@@ -3465,7 +3470,7 @@ const getSingleTrainingCategoryType = async (req, res) => {
 };
 const createTrainingCategoryType = async (req, res) => {
   const { titleAR, titleEN } = req.body;
-  const image = req.file.filename;
+  const image = req.files[0].filename;
 
   const newTrainingCategoryType = await TrainingCategoryType.create(
     {
@@ -3527,11 +3532,11 @@ const updateTrainingCategoryType = async (req, res) => {
     });
   }
 
-  if (req.file && obj_tct.image) {
+  if (req.files && obj_tct.image) {
     clearImage(obj_tct.image);
   }
-  if (req.file) {
-    await obj_tct.update({ image: req.file.filename });
+  if (req.files) {
+    await obj_tct.update({ image: req.files[0].filename });
   }
 
   await obj_tct.update({ titleAR, titleEN });
@@ -3577,7 +3582,7 @@ const getSingleLimeType = async (req, res) => {
 
 const createLimeType = async (req, res) => {
   const { titleAR, titleEN } = req.body;
-  const image = req.file.filename;
+  const image = req.files[0].filename;
 
   const newLimeType = await LimeType.create(
     {
@@ -3625,7 +3630,7 @@ const updateLimeType = async (req, res) => {
 
   const { titleAR, titleEN } = req.body;
   const { limetypeId } = req.params;
-  const image = req.file.filename;
+  const image = req.files[0].filename;
 
   const obj_tct = await LimeType.findOne({
     where: { id: limetypeId },
@@ -3648,11 +3653,11 @@ const updateLimeType = async (req, res) => {
     });
   }
 
-  if (req.file && obj_tct.image) {
+  if (req.files && obj_tct.image) {
     clearImage(obj_tct.image);
   }
-  if (req.file) {
-    await obj_tct.update({ image: req.file.filename });
+  if (req.files) {
+    await obj_tct.update({ image: req.files[0].filename });
   }
 
   res.send({
@@ -3993,7 +3998,7 @@ const getDrivingLicenses = async (req, res) => {
 
 const createDrivingLicenses = async (req, res) => {
   const { titleAR, titleEN, country, requirementsAR, requirementsEN } = req.body;
-  const image = req.file.filename;
+  const image = req.files[0].filename;
   const objDrivingLicenses = await DrivingLicenses.findOne({
     where: {
       country: country,
@@ -4085,11 +4090,11 @@ const updateDrivingLicenses = async (req, res) => {
     });
   }
 
-  if (req.file && objDrivingLicenses.image) {
+  if (req.files && objDrivingLicenses.image) {
     clearImage(objDrivingLicenses.image);
   }
-  if (req.file) {
-    await objDrivingLicenses.update({ image: req.file.filename });
+  if (req.files) {
+    await objDrivingLicenses.update({ image: req.files[0].filename });
   }
 
   res.send({
@@ -4381,7 +4386,7 @@ const getAllCareer = async (req, res) => {
 
 const createCareer = async (req, res) => {
   const { titleAR, titleEN, country, descriptionAr, descriptionEn, advertiserName, advertiserPhone, CareerDepartmentId } = req.body;
-  const image = req.file.filename;
+  const image = req.files[0].filename;
   const objCareerDepartment = await CareerDepartment.findOne({
     where: {
       id: CareerDepartmentId,
@@ -4495,11 +4500,11 @@ const updateCareer = async (req, res) => {
     });
   }
 
-  if (req.file && objCareer.image) {
+  if (req.files && objCareer.image) {
     clearImage(objCareer.image);
   }
-  if (req.file) {
-    await objCareer.update({ image: req.file.filename });
+  if (req.files) {
+    await objCareer.update({ image: req.files[0].filename });
   }
 
   res.send({
@@ -4569,7 +4574,7 @@ const getNews = async (req, res) => {
 
 const createNews = async (req, res) => {
   const { titleAR, titleEN, descriptionAR, descriptionEN } = req.body;
-  const image = req.file.filename;
+  const image = req.files[0].filename;
   const newNews = await News.create(
     {
       titleAR: titleAR,
@@ -4646,11 +4651,11 @@ const updateNews = async (req, res) => {
     });
   }
 
-  if (req.file && objNews.image) {
+  if (req.files && objNews.image) {
     clearImage(objNews.image);
   }
-  if (req.file) {
-    await objNews.update({ image: req.file.filename });
+  if (req.files) {
+    await objNews.update({ image: req.files[0].filename });
   }
 
   res.send({
@@ -5527,7 +5532,7 @@ const createAds = async (req, res) => {
   const { titleAR, titleEN, descriptionAR, descriptionEN,
     link, carModel, yearManufacture, carPrice,
     currency, AdsDepartmentId } = req.body;
-  const image = req.file.filename;
+  const image = req.files[0].filename;
   const newAds = await Ads.create(
     {
       titleAR: titleAR, titleEN: titleEN,
@@ -6399,7 +6404,6 @@ const AdminStats = async (req, res) => {
       status: "2" ,
     },
   });
-
   const packagePay= await StudentPackage.count({
     where: {
       isPaid: true ,
@@ -6418,6 +6422,20 @@ const AdminStats = async (req, res) => {
   const discountPay= await StudentDiscount.count({
     where: {
       isPaid: true ,
+    },
+  });
+  const teachersWiting = await Teacher.count({
+    where: {
+      isVerified: 0,
+      firstName: { [Op.ne]: "" },
+      lastName: { [Op.ne]: "" },
+      phone: { [Op.ne]: "" },
+      gender: { [Op.ne]: "" },
+      image: { [Op.ne]: "" },
+      dateOfBirth: { [Op.ne]: "" },
+      country: { [Op.ne]: "" },
+      city: { [Op.ne]: "" },
+      descriptionAr: { [Op.ne]: "" },
     },
   });
     res.status(200).json({
@@ -6448,6 +6466,7 @@ const AdminStats = async (req, res) => {
       parentExchangeNumWaiting,
       studentExchangeNumWaiting,
       teacherExchangeNumWaiting,
+      teachersWiting,
       discountsNumWaiting,
       adsNumWaiting:adsNumWaiting+adsNumTeacherWaiting,
       adsNum:adsNum+adsNumTeacher,
@@ -6471,8 +6490,33 @@ const AdminStats = async (req, res) => {
   }
 };
 
+const getCertificates =async (req,res)=>{
+   try{
+     const certificatesStd=await Evaluations.findAll({
+      order: [["certificateDate", "DESC"]],
+      include: [
+        {
+          model: Teacher,
+          attributes: ["id", "firstName", "lastName", "email", "phone"],
+        },
+      ],
+    });
+     if (!certificatesStd) {
+        return res.status(200).json({
+          data:[]
+        })
+     }
+    res.status(201).json({
+          data:certificatesStd
+        })
+   }catch(error){
+    res.status(500).json({error:error.message})
+   }
+}
+
 
 module.exports = {
+  getCertificates,
   AdminStats,
   sendBulkMessages,
   getAllParent,

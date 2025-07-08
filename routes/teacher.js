@@ -51,7 +51,7 @@ teacherRouter.post("/search/top", errorCatcher(searchTeacherFilterTop));
 
 teacherRouter.post( "/about/:teacherId",  verifyToken,  checkUserAuth("teacher"),   errorCatcher(signAbout) );
 teacherRouter.post( "/image/:teacherId",  verifyToken,  checkUserAuth("teacher"),   errorCatcher(uploadImage));
-teacherRouter.post( "/additionalInfo/:teacherId",verifyToken,checkUserAuth("teacher"),errorCatcher(signAdditionalInfo));
+teacherRouter.post( "/additionalInfo/:teacherId",verifyToken,  checkUserAuth("teacher"),errorCatcher(signAdditionalInfo));
 teacherRouter.post( "/subjects/:teacherId", verifyToken,  checkUserAuth("teacher"), errorCatcher(addSubjects));
 teacherRouter.post("/setting/:teacherId",  verifyToken,  checkUserAuth("teacher"),  errorCatcher(settingNotification));
 teacherRouter.post("/resume/:teacherId",   verifyToken,  checkUserAuth("teacher"),  errorCatcher(signResume));

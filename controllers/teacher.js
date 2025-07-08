@@ -54,6 +54,8 @@ const Invite = require("../models/Invite");
 const Evaluations = require("../models/Evaluation");
 const Lessons = require("../models/Lesson");
 const StudentLecture = require("../models/StudentLecture");
+const convertCurrency = require("../utils/convertCurrency");
+
 dotenv.config();
 let currencyConverter = new CC();
 
@@ -583,8 +585,8 @@ const addSubjects = async (req, res) => {
   const teacher = await Teacher.findOne({ where: { id: teacherId } });
   if (!teacher)
     throw serverErrs.BAD_REQUEST({
-      arabic: "المدرب غير موجود",
-      english: "Invalid trainerId! ",
+      arabic: "المعلم غير موجود",
+      english: "Invalid teacherId! ",
     });
 
   if (teacher.id != req.user.userId)
@@ -608,13 +610,14 @@ const addSubjects = async (req, res) => {
   }
   let currency = "OMR";
   if (remote || f2fStudent || f2fTeacher) {
-    currency = remote?.currency || f2fStudent?.currency || f2fTeacher?.currency;
+    currency = remote.currency || f2fStudent.currency || f2fTeacher.currency;
   }
-  const conversionRate = await currencyConverter
-    .from(currency)
-    .to("OMR")
-    .amount(1)
-    .convert();
+  const conversionRate = await convertCurrency(1,currency,"OMR")
+  // const conversionRate = await currencyConverter
+  //   .from(currency)
+  //   .to("OMR")
+  //   .amount(1)
+  //   .convert();
   await TeacherSubject.destroy({
     where: {
       TeacherId: teacher.id,
@@ -646,7 +649,7 @@ const addSubjects = async (req, res) => {
     remote["price"] = +remote.price * conversionRate;
     remote.currency = "OMR";
     await RemoteSession.create(remote).then(() =>
-      console.log("trainer remote session has been saved")
+      console.log("Teacher remote session has been saved")
     );
   }
   if (f2fStudent) {
@@ -668,7 +671,7 @@ const addSubjects = async (req, res) => {
     f2fTeacher["price"] = +f2fTeacher.price * conversionRate;
     f2fTeacher.currency = "OMR";
     await F2FSessionTeacher.create(f2fTeacher).then(() =>
-      console.log("trainer session at trainer home has been saved")
+      console.log("Teacher session at teacher home has been saved")
     );
   }
 
