@@ -610,14 +610,10 @@ const addSubjects = async (req, res) => {
   }
   let currency = "OMR";
   if (remote || f2fStudent || f2fTeacher) {
-    currency = remote.currency || f2fStudent.currency || f2fTeacher.currency;
+    currency = (remote?.currency || f2fStudent?.currency || f2fTeacher?.currency || "OMR");
   }
   const conversionRate = await convertCurrency(1,currency,"OMR")
-  // const conversionRate = await currencyConverter
-  //   .from(currency)
-  //   .to("OMR")
-  //   .amount(1)
-  //   .convert();
+
   await TeacherSubject.destroy({
     where: {
       TeacherId: teacher.id,

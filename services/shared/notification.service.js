@@ -2,8 +2,10 @@ const Notification = require("../../models/Notification");
 const { sendWhatsAppTemplate } = require("../../utils/whatsapp");
 const {
   BOOKING_TEMPLATES,
-  LESSON_TEMPLATES,
+  LESSON_TEMPLATES,  
+  ADMIN_TEMPLATES,
 } = require("../../config/whatsapp-templates");
+const { sendAdminWhatsApp } = require("../../utils/adminWhatsapp");
 
 const sendNotification = async (titleAR, titleEn, userId, type, userType) => {
   await Notification.create({
@@ -54,8 +56,8 @@ const sendBookingNotification = async ({ type, student, teacher, adminId, langua
     messageAr: msg.ar,
     messageEn: msg.en,
     userId: student.id,
-    type: "student",
-    userType: "payment_success",
+    userType: "student",
+    type: "payment_success",
   });
 
   // 📱 إرسال رسالة واتساب للطالب
@@ -86,8 +88,8 @@ const sendBookingNotification = async ({ type, student, teacher, adminId, langua
       messageAr: `${msg.ar} من ${student.name}`,
       messageEn: `${msg.en} by ${student.name}`,
       userId: teacher.id,
-      type: "teacher",
-      userType: "payment_success",
+      userType: "teacher",
+      type: "payment_success",
     });
 
     // 📱 إرسال رسالة واتساب للمعلم
@@ -115,13 +117,32 @@ const sendBookingNotification = async ({ type, student, teacher, adminId, langua
 
   // 💬 إشعار للأدمن
   if (adminId) {
+    // إنشاء إشعار في قاعدة البيانات
     await Notification.create({
       messageAr: `${msg.ar} من الطالب ${student.name}`,
       messageEn: `${msg.en} by student ${student.name}`,
       userId: adminId,
-      type: "admin",
-      userType: "payment_success",
+      userType: "admin",
+      type: "payment_success",
     });
+
+    // إرسال إشعار واتساب للأدمن
+    try {
+      // استخدام قالب موجود بالفعل كبديل مؤقت
+      await sendAdminWhatsApp({
+        templateName: BOOKING_TEMPLATES.TEST_BOOKING_NOTIFICATION_TEACHER_AR, // استخدام قالب موجود
+        variables: [
+          "إدارة التطبيق", // اسم المستلم
+          student?.name || "طالب", // اسم الطالب
+          `حجز ${type.replace("_", " ")}`, // نوع الحجز
+          new Date().toLocaleString('ar-OM') // تاريخ الحجز
+        ],
+        messageType: 'booking_notification'
+      });
+    } catch (error) {
+      console.error('❌ فشل إرسال إشعار الحجز إلى الأدمن:', error.message);
+      console.error('تفاصيل الخطأ:', error.response?.data || error);
+    }
   }
 };
 
@@ -166,8 +187,8 @@ const sendLessonNotification = async ({
       messageAr: msg.ar,
       messageEn: msg.en,
       userId: student.id,
-      type: "student",
-      userType: type,
+      userType: "student",
+      type: type,
     });
 
     // رسالة واتساب للطالب
@@ -234,8 +255,8 @@ const sendLessonNotification = async ({
       messageAr: `${msg.ar} - ${student?.name || "طالب"}`,
       messageEn: `${msg.en} - ${student?.name || "Student"}`,
       userId: teacher.id,
-      type: "teacher",
-      userType: type,
+      userType: "teacher",
+      type: type,
     });
 
     // رسالة واتساب للمعلم
@@ -299,8 +320,8 @@ const sendLessonNotification = async ({
       messageAr: `${msg.ar} - الطالب: ${student?.name || "غير محدد"} - المعلم: ${teacher?.name || "غير محدد"}`,
       messageEn: `${msg.en} - Student: ${student?.name || "Unknown"} - Teacher: ${teacher?.name || "Unknown"}`,
       userId: adminId,
-      type: "admin",
-      userType: type,
+      userType: "admin",
+      type: type,
     });
   }
 };
@@ -339,8 +360,8 @@ const sendGeneralNotification = async ({
       messageAr: msg.ar,
       messageEn: msg.en,
       userId: user.id,
-      type: user.userType || "student",
-      userType: type,
+      userType: user.userType || "student",
+      type: type,
     });
 
     // رسالة واتساب للمستخدم
@@ -372,25 +393,21 @@ const sendGeneralNotification = async ({
       messageAr: `${msg.ar} - ${user?.name || "مستخدم جديد"} (${user.userType || "طالب"})`,
       messageEn: `${msg.en} - ${user?.name || "New User"} (${user.userType || "student"})`,
       userId: adminId,
-      type: "admin",
-      userType: type,
+      userType: "admin",
+      type: type,
     });
 
     // إرسال رسالة واتساب للأدمن عن المستخدم الجديد
     try {
-      const templateName = "new_user_admin_notification_ar";
-      await sendWhatsAppTemplate({
-        to: process.env.ADMIN_WHATSAPP_NUMBER || "+96871234567",
-        templateName,
+      await sendAdminWhatsApp({
+        templateName: ADMIN_TEMPLATES.NEW_USER_ADMIN_NOTIFICATION_AR,
         variables: [
           user?.name || "مستخدم جديد",
           user.userType === "teacher" ? "معلم" : "طالب",
           user.email || "غير محدد",
           user.phoneNumber || user.phone || "غير محدد",
         ],
-        language: "ar",
-        recipientName: "الإدارة",
-        messageType: "new_user_notification",
+        messageType: 'new_user_notification'
       });
       console.log("✅ WhatsApp new user notification sent to admin");
     } catch (whatsappError) {
@@ -407,25 +424,20 @@ const sendGeneralNotification = async ({
       messageAr: `${msg.ar} - ${user?.name || "مستخدم"}`,
       messageEn: `${msg.en} - ${user?.name || "User"}`,
       userId: adminId,
-      type: "admin",
-      userType: type,
+      userType: "admin",
+      type: type,
     });
 
     // إرسال رسالة واتساب للأدمن عن الشكوى الجديدة
     try {
-      const templateName = "new_complaint_admin_ar";
-      await sendWhatsAppTemplate({
-        to: process.env.ADMIN_WHATSAPP_NUMBER || "+96871234567",
-        templateName,
+      await sendAdminWhatsApp({
+        templateName: ADMIN_TEMPLATES.NEW_COMPLAINT_NOTIFICATION_AR,
         variables: [
           user?.name || "مستخدم",
           details.complaintTitle || "شكوى جديدة",
-          details.category || "عام",
-          details.complaintId || "غير محدد",
+          `${details.complaintDetails || 'لا توجد تفاصيل إضافية'}\n\nالتصنيف: ${details.category || 'عام'}\nرقم الشكوى: ${details.complaintId || 'غير محدد'}`,
         ],
-        language: "ar",
-        recipientName: "الإدارة",
-        messageType: "complaint_notification",
+        messageType: 'new_complaint_notification'
       });
       console.log("✅ WhatsApp complaint notification sent to admin");
     } catch (whatsappError) {

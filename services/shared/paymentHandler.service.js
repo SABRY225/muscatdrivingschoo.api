@@ -24,6 +24,7 @@ const { sendWhatsAppTemplate } = require("../../utils/whatsapp");
 const { PAYMENT_TEMPLATES } = require("../../config/whatsapp-templates");
 const { sendInvoiceWhatsApp } = require("../../utils/invoiceWhatsApp");
 const Invite = require("../../models/Invite");
+const Lessons = require("../../models/Lesson");
 const fetch = (...args) =>
   import("node-fetch").then(({ default: fetch }) => fetch(...args));
 
@@ -109,6 +110,10 @@ exports.handleThawaniPayment = async (data, newPrice, createEntityFn) => {
     global.session_id = result.data.session_id;
     global.typePay = data.type;
     created.sessionId = result.data.session_id;
+    global.TeacherId=data.TeacherId;
+    if (data.type=="lesson_booking") {
+      global.lessionRequestId=data.lessionRequestId;
+    }
     await created.save();
 
     return {
@@ -377,10 +382,6 @@ exports.handlePointsPayment = async (data, newPrice, createEntityFn, type) => {
   };
 };
 
-exports.handleconfirmePaymentCharge = async (language) => {
-
-};
-
 exports.handleconfirmePayment = async (language) => {
   const { THAWANI_KEY } = process.env;
   let options = {
@@ -390,181 +391,142 @@ exports.handleconfirmePayment = async (language) => {
       "thawani-api-key": THAWANI_KEY,
     },
   };
-   console.log(global.session_id);
-   
+
+  console.log("global.session_id", global.session_id);
+  console.log("global.typePay", global.typePay);
+
   let url = `https://uatcheckout.thawani.om/api/v1/checkout/session/${global.session_id}`;
 
   const response = await fetch(url, options);
   const data = await response.json();
- console.log(data);
- 
-  if (data.data.payment_status != "paid") {
+  console.log("data =", data);
+
+  if (data.data.payment_status !== "paid") {
     throw serverErrs.BAD_REQUEST("payment didn't succeed");
   }
 
   let session;
-  if (global.typePay == "lesson_booking") {
-    session = await Session.findOne({
-      where: {
-        sessionId: global.session_id,
-      },
-    });
-  } else if (global.typePay == "test_booking") {
-    session = await StudentTest.findOne({
-      where: {
-        sessionId: global.session_id,
-      },
-    });
-  } else if (global.typePay == "lecture_booking") {
-    session = await StudentLecture.findOne({
-      where: {
-        sessionId: global.session_id,
-      },
-    });
-  } else if (global.typePay == "discount_booking") {
-    session = await StudentDiscount.findOne({
-      where: {
-        sessionId: global.session_id,
-      },
-    });
-  } else if (global.typePay == "package_booking") {
-    session = await StudentPackage.findOne({
-      where: {
-        sessionId: global.session_id,
-      },
-    });
-  }else if(global.typePay == "charge"){
 
-  const wallet = await Wallet.findOne({
-    where: {
-      sessionId: global.session_id,
-    },
-  });
-  const { StudentId } = wallet;
+  if (global.typePay === "lesson_booking") {
+session = await Session.findOne({ where: { sessionId: global.session_id } });
 
-  wallet.isPaid = true;
-  await wallet.save();
+const lession = await Lessons.findByPk(global.lessionRequestId);
+if (!lession) throw new Error("Lesson not found");
 
-  global.session_id = null;
+lession.status = "paid";
+await lession.save();
+  } else if (global.typePay === "test_booking") {
+    session = await StudentTest.findOne({ where: { sessionId: global.session_id } });
+  } else if (global.typePay === "lecture_booking") {
+    session = await StudentLecture.findOne({ where: { sessionId: global.session_id } });
+  } else if (global.typePay === "discount_booking") {
+    session = await StudentDiscount.findOne({ where: { sessionId: global.session_id } });
+  } else if (global.typePay === "package_booking") {
+    session = await StudentPackage.findOne({ where: { sessionId: global.session_id } });
+  } else if (global.typePay === "charge") {
+    const wallet = await Wallet.findOne({ where: { sessionId: global.session_id } });
+    const { StudentId } = wallet;
 
-  const student = await Student.findOne({
-    where: {
-      id: StudentId,
-    },
-  });
+    wallet.isPaid = true;
+    await wallet.save();
 
-  student.wallet += +wallet.price;
-  await student.save();
+    global.session_id = null;
 
-  // send message to email
-  const mailOptions = generateChargeConfirmationEmail(
-    language,
-    student.name,
-    student.email,
-    wallet.price,
-    wallet.currency,
-    wallet.sessionId,
-  );
-  await sendEmail(mailOptions);
+    const student = await Student.findOne({ where: { id: StudentId } });
+    student.wallet += +wallet.price;
+    await student.save();
 
-  // send WhatsApp wallet charge confirmation and invoice
-  try {
-    const templateName =
-      language === "ar"
-        ? PAYMENT_TEMPLATES.WALLET_CHARGE_CONFIRMATION_AR
-        : PAYMENT_TEMPLATES.WALLET_CHARGE_CONFIRMATION_EN;
-    await sendWhatsAppTemplate({
-      to: student.phoneNumber,
-      templateName,
-      variables: [student.name, wallet.price.toString(), wallet.currency],
-      language: templateName.includes("_ar") ? "ar" : "en_US",
-      recipientName: student.name,
-      messageType: "wallet_charge_confirmation",
-    });
-
-    // إرسال فاتورة شحن الرصيد
-    await sendInvoiceWhatsApp({
-      to: student.phoneNumber,
-      customerName: student.name,
-      invoiceNumber: `CHG-${wallet.id}-${Date.now()}`,
-      totalAmount: wallet.price,
-      currency: wallet.currency,
-      paymentMethod: "thawani",
-      language: language,
-      invoiceType: "wallet_charge",
-      transactionId: wallet.sessionId,
-    });
-  } catch (whatsappError) {
-    console.error(
-      "❌ فشل إرسال رسالة واتساب لتأكيد شحن الرصيد:",
-      whatsappError.message,
+    const mailOptions = generateChargeConfirmationEmail(
+      language,
+      student.name,
+      student.email,
+      wallet.price,
+      wallet.currency,
+      wallet.sessionId,
     );
-  }
+    await sendEmail(mailOptions);
 
-  // send notification
-  await sendNotification(
-    `تم ايداع مبلغ قدره ${wallet.price} ريال عماني`,
-    `An amount of ${wallet.price} Omani Riyals has been deposited.`,
-    student.id,
-    "student",
-    "charge_success",
-  );
-  await sendNotification(
-    `تم ايداع مبلغ قدره ${wallet.price} ريال عماني في رصيد الطالب ${student.name} `,
-    `An amount of ${wallet.price} Omani Riyals has been deposited into the student's balance ${student.name}`,
-    "1",
-    "admin",
-    "charge_success",
-  );
-  res.send({
-    status: 201,
-    data: student,
-    msg: { arabic: "تم الدفع بنجاح", english: "successful charging" },
-  });
+    try {
+      const templateName =
+        language === "ar"
+          ? PAYMENT_TEMPLATES.WALLET_CHARGE_CONFIRMATION_AR
+          : PAYMENT_TEMPLATES.WALLET_CHARGE_CONFIRMATION_EN;
+
+      await sendWhatsAppTemplate({
+        to: student.phoneNumber,
+        templateName,
+        variables: [student.name, wallet.price.toString(), wallet.currency],
+        language: templateName.includes("_ar") ? "ar" : "en_US",
+        recipientName: student.name,
+        messageType: "wallet_charge_confirmation",
+      });
+
+      await sendInvoiceWhatsApp({
+        to: student.phoneNumber,
+        customerName: student.name,
+        invoiceNumber: `CHG-${wallet.id}-${Date.now()}`,
+        totalAmount: wallet.price,
+        currency: wallet.currency,
+        paymentMethod: "thawani",
+        language,
+        invoiceType: "wallet_charge",
+        transactionId: wallet.sessionId,
+      });
+    } catch (whatsappError) {
+      console.error("❌ فشل إرسال رسالة واتساب لتأكيد شحن الرصيد:", whatsappError.message);
+    }
+
+    await sendNotification(
+      `تم ايداع مبلغ قدره ${wallet.price} ريال عماني`,
+      `An amount of ${wallet.price} Omani Riyals has been deposited.`,
+      student.id,
+      "student",
+      "charge_success",
+    );
+
+    await sendNotification(
+      `تم ايداع مبلغ قدره ${wallet.price} ريال عماني في رصيد الطالب ${student.name}`,
+      `An amount of ${wallet.price} Omani Riyals has been deposited into the student's balance ${student.name}`,
+      "1",
+      "admin",
+      "charge_success",
+    );
+
+    return {
+      status: 201,
+      data: student,
+      msg: { arabic: "تم الدفع بنجاح", english: "successful charging" },
+    };
   }
 
   const { StudentId } = session;
-
   session.isPaid = true;
   await session.save();
-
   global.session_id = null;
+
   await FinancialRecord.create({
-    amount: session.price * session.period,
+    amount: session.price,
     currency: session.currency,
     type: "booking",
-    TeacherId: session.TeacherId,
+    TeacherId: global.TeacherId,
     StudentId,
   });
 
-  const teacher = await Teacher.findOne({
-    where: {
-      id: session.TeacherId,
-    },
-  });
-
+  const teacher = await Teacher.findOne({ where: { id: global.TeacherId } });
   const admin = await Admin.findOne();
-  discount = 1 - +admin.profitRatio / 100.0;
+  const discount = 1 - +admin.profitRatio / 100.0;
 
   teacher.totalAmount += +session.price * discount;
   teacher.bookingNumbers += 1;
   teacher.hoursNumbers += +session.period;
   await teacher.save();
-  // add mony to admin wallet
+
   const amountAdmin = +session.price * (+admin.profitRatio / 100.0);
   await addToAdminWallet(amountAdmin);
 
-  const student = await Student.findOne({
-    where: {
-      id: StudentId,
-    },
-  });
-  // add points
-  await addPointsForPurchase({
-    studentId: student.id,
-    teacherId: teacher.id,
-  });
-  // send email
+  const student = await Student.findOne({ where: { id: StudentId } });
+  await addPointsForPurchase({ studentId: student.id, teacherId: teacher.id });
+
   const mailOptions = generateChargeConfirmationEmail(
     language,
     student.name,
@@ -575,12 +537,12 @@ exports.handleconfirmePayment = async (language) => {
   );
   await sendEmail(mailOptions);
 
-  // send WhatsApp payment confirmation and invoice
   try {
     const templateName =
       language === "ar"
         ? PAYMENT_TEMPLATES.PAYMENT_CONFIRMATION_AR
         : PAYMENT_TEMPLATES.PAYMENT_CONFIRMATION_EN;
+
     await sendWhatsAppTemplate({
       to: student.phoneNumber,
       templateName,
@@ -595,7 +557,6 @@ exports.handleconfirmePayment = async (language) => {
       messageType: "payment_confirmation",
     });
 
-    // إرسال فاتورة دفع مفصلة
     await sendInvoiceWhatsApp({
       to: student.phoneNumber,
       customerName: student.name,
@@ -603,7 +564,7 @@ exports.handleconfirmePayment = async (language) => {
       totalAmount: session.price,
       currency: session.currency,
       paymentMethod: "thawani",
-      language: language,
+      language,
       invoiceType: session.type.includes("lesson")
         ? "lesson_payment"
         : session.type.includes("lecture")
@@ -623,13 +584,9 @@ exports.handleconfirmePayment = async (language) => {
       },
     });
   } catch (whatsappError) {
-    console.error(
-      "❌ فشل إرسال رسالة واتساب لتأكيد الدفع:",
-      whatsappError.message,
-    );
+    console.error("❌ فشل إرسال رسالة واتساب لتأكيد الدفع:", whatsappError.message);
   }
 
-  // add notfication
   await sendBookingNotification({
     type: session.type,
     student,
@@ -637,12 +594,13 @@ exports.handleconfirmePayment = async (language) => {
     adminId: "1",
   });
 
-  res.send({
+  return {
     status: 201,
     data: session,
     msg: {
       arabic: "تم الدفع بنجاح من خلال منصة ثواني",
       english: "successful booking from thawani",
     },
-  });
+  };
 };
+

@@ -22,7 +22,7 @@ const Lessons = sequelize.define("Lessons", {
     allowNull: false,
   },
   status: {
-    type: DataTypes.ENUM('pending', 'approved','canceled'),
+    type: DataTypes.ENUM('pending', 'approved','paid','canceled'),
     defaultValue: 'pending',
   },
   paymentLink: {
