@@ -533,19 +533,19 @@ const acceptRequest = async (req, res) => {
     const studentPromise = Student.findOne({
       where: { id: lession.studentId },
     });
-    const notificationPromise = Notification.create({
-      userId: lession.studentId,
-      userType: "Student",
-      type: "lesson_approved_request",
-      messageAr: "تأكيد طلب الحجز الدرس",
-      messageEn: "Confirm lesson reservation request",
-    });
+    // const notificationPromise = Notification.create({
+    //   userId: lession.studentId,
+    //   userType: "Student",
+    //   type: "lesson_approved_request",
+    //   messageAr: "تأكيد طلب الحجز الدرس",
+    //   messageEn: "Confirm lesson reservation request",
+    // });
 
     lession.status = "approved";
 
     const [student, notification] = await Promise.all([
       studentPromise,
-      notificationPromise,
+      // notificationPromise,
       lession.save(),
     ]);
 

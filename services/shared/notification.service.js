@@ -102,14 +102,14 @@ const sendBookingNotification = async ({ type, student, teacher, adminId, langua
       await sendWhatsAppTemplate({
         to: teacher.phone,
         templateName: teacherTemplateName,
-        variables: [teacher.name || "المعلم", student.name || "الطالب", type.replace("_", " ")],
+        variables: [teacher.firstName || "المدرب", student.name || "الطالب", type.replace("_", " ")],
         language: teacherTemplateName.includes("_ar") ? "ar" : "en_US",
-        recipientName: teacher.name,
+        recipientName: teacher.firstName,
         messageType: "booking_notification",
       });
     } catch (whatsappError) {
       console.error(
-        `❌ فشل إرسال رسالة واتساب للمعلم ${teacher.name}:`,
+        `❌ فشل إرسال رسالة واتساب للمعلم ${teacher.firstName}:`,
         whatsappError.message,
       );
     }
@@ -194,7 +194,6 @@ const sendLessonNotification = async ({
     // رسالة واتساب للطالب
     try {
       let templateName;
-
       // تحديد القالب المناسب للطالب حسب نوع الإشعار واللغة
       switch (type) {
         case "lesson_request":
@@ -232,7 +231,7 @@ const sendLessonNotification = async ({
           templateName,
           variables: [
             student.name || "الطالب",
-            teacher?.name || "المعلم",
+            teacher?.firstName || "المدرب",
             lessonDetails.date || new Date().toLocaleDateString("ar-EG"),
             lessonDetails.time || new Date().toLocaleTimeString("ar-EG"),
           ],
@@ -296,13 +295,13 @@ const sendLessonNotification = async ({
           to: teacher.phone,
           templateName,
           variables: [
-            teacher.name || "المعلم",
+            teacher.firstName || "المدرب",
             student?.name || "الطالب",
             lessonDetails.date || new Date().toLocaleDateString("ar-EG"),
             lessonDetails.time || new Date().toLocaleTimeString("ar-EG"),
           ],
           language: templateName.includes("_ar") ? "ar" : "en_US",
-          recipientName: teacher.name || "المعلم",
+          recipientName: teacher.firstName || "المدرب",
           messageType: type,
         });
       }
@@ -317,8 +316,8 @@ const sendLessonNotification = async ({
   // إشعار للأدمن
   if (adminId) {
     await Notification.create({
-      messageAr: `${msg.ar} - الطالب: ${student?.name || "غير محدد"} - المعلم: ${teacher?.name || "غير محدد"}`,
-      messageEn: `${msg.en} - Student: ${student?.name || "Unknown"} - Teacher: ${teacher?.name || "Unknown"}`,
+      messageAr: `${msg.ar} - الطالب: ${student?.name || "غير محدد"} - المدرب: ${teacher?.firstName || "غير محدد"}`,
+      messageEn: `${msg.en} - Student: ${student?.name || "Unknown"} - Teacher: ${teacher?.firstName || "Unknown"}`,
       userId: adminId,
       userType: "admin",
       type: type,

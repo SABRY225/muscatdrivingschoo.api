@@ -215,7 +215,7 @@ const signPassword = async (req, res, next) => {
 
     const token = await generateToken({
       userId: teacher.id,
-      name: teacher.name,
+      name: teacher.firstName,
       role: "teacher",
     });
 
@@ -248,9 +248,9 @@ const signPassword = async (req, res, next) => {
       const result = await sendWhatsAppTemplate({
         to: teacher.phone,
         templateName,
-        variables: [teacher.firstName + " " + teacher.lastName || "المعلم"],
+        variables: [teacher.firstName + " " + teacher.lastName || "المدرب"],
         language: language === "ar" ? "ar" : "en_US",
-        recipientName: teacher.firstName + " " + teacher.lastName || "المعلم",
+        recipientName: teacher.firstName + " " + teacher.lastName || "المدرب",
         messageType: "welcome",
         fallbackToEnglish: true,
       });
@@ -331,18 +331,18 @@ const signAbout = async (req, res) => {
     await sendWhatsAppTemplate({
       to: teacher.phone,
       templateName: completeTemplate,
-      variables: [teacher.firstName + " " + teacher.lastName || "المعلم"],
+      variables: [teacher.firstName + " " + teacher.lastName || "المدرب"],
       language: completeTemplate.includes("_ar") ? "ar" : "en_US",
-      recipientName: teacher.firstName + " " + teacher.lastName || "المعلم"
+      recipientName: teacher.firstName + " " + teacher.lastName || "المدرب"
     });
     // رسالة الترحيب عند التسجيل الجديد
     const welcomeTemplate = teacher.language === "ar" ? PAYMENT_TEMPLATES.WELCOME_TEACHER_AR : PAYMENT_TEMPLATES.WELCOME_TEACHER_EN;
     await sendWhatsAppTemplate({
       to: teacher.phone,
       templateName: welcomeTemplate,
-      variables: [teacher.firstName + " " + teacher.lastName || "المعلم"],
+      variables: [teacher.firstName + " " + teacher.lastName || "المدرب"],
       language: welcomeTemplate.includes("_ar") ? "ar" : "en_US",
-      recipientName: teacher.firstName + " " + teacher.lastName || "المعلم"
+      recipientName: teacher.firstName + " " + teacher.lastName || "المدرب"
     });
   } catch (err) {
     console.error("خطأ إرسال واتساب (تسجيل/ترحيب):", err.message);
@@ -547,7 +547,7 @@ const uploadImage = async (req, res) => {
   const teacher = await Teacher.findOne({ where: { id: teacherId } });
   if (!teacher)
     throw serverErrs.BAD_REQUEST({
-      arabic: "المعلم غير موجود",
+      arabic: "المدرب غير موجود",
       english: "Invalid teacherId! ",
     });
 
@@ -585,7 +585,7 @@ const addSubjects = async (req, res) => {
   const teacher = await Teacher.findOne({ where: { id: teacherId } });
   if (!teacher)
     throw serverErrs.BAD_REQUEST({
-      arabic: "المعلم غير موجود",
+      arabic: "المدرب غير موجود",
       english: "Invalid teacherId! ",
     });
 
@@ -846,7 +846,7 @@ const addDescription = async (req, res) => {
 const PersonalDescription = async (req, res) => {
   const { teacherId } = req.params;
 
-  // التأكد من وجود المعلم
+  // التأكد من وجود المدرب
   const teacher = await Teacher.findOne({
     where: { id: teacherId },
     attributes: { exclude: ["password"] },
@@ -2967,7 +2967,7 @@ const getSessionsByTeacher = async (req, res) => {
       return res.status(404).json({
         status: 404,
         msg: {
-          arabic: "لم يتم العثور على جلسات لهذا المعلم",
+          arabic: "لم يتم العثور على جلسات لهذا المدرب",
           english: "No sessions found for this teacher",
         },
       });

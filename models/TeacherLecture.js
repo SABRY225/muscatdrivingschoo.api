@@ -54,7 +54,7 @@ const TeacherLecture = Sequelize.define(
   },
   semester: {
     type: DataTypes.STRING,
-    allowNull: false,
+    allowNull: true,
   },
     subject: {
     type: DataTypes.STRING,

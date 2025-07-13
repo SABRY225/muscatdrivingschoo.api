@@ -231,7 +231,7 @@ exports.handleWalletPayment = async (data, newPrice, createEntityFn, type) => {
               ? "test_payment"
               : "general_payment",
       sessionDetails: {
-        teacherName: teacher.name || `${teacher.firstName} ${teacher.lastName}`,
+        teacherName: teacher.firstName || `${teacher.firstName} ${teacher.lastName}`,
         subject: type,
         duration: created.period || "60",
       },
@@ -360,7 +360,7 @@ exports.handlePointsPayment = async (data, newPrice, createEntityFn, type) => {
               ? "test_payment"
               : "general_payment",
       sessionDetails: {
-        teacherName: teacher.name || `${teacher.firstName} ${teacher.lastName}`,
+        teacherName: teacher.firstName || `${teacher.firstName} ${teacher.lastName}`,
         subject: type,
         duration: created.period || "60",
       },
@@ -611,7 +611,7 @@ const mailOptionsTeacher = generateInvoiceEmailBody({
                 : "general_payment",
       transactionId: session.sessionId,
       sessionDetails: {
-        teacherName: teacher.name || `${teacher.firstName} ${teacher.lastName}`,
+        teacherName: teacher.firstName || `${teacher.firstName} ${teacher.lastName}`,
         subject: session.type,
         duration: session.period || "60",
       },

@@ -816,19 +816,19 @@ const acceptTeacher = async (req, res) => {
     const result = await sendWhatsAppTemplate({
       to: teacher.phone,
       templateName,
-      variables: [teacher.firstName + " " + teacher.lastName || teacher.name || "المعلم"],
+      variables: [teacher.firstName + " " + teacher.lastName || "المدرب"],
       language: language === "ar" ? "ar" : "en_US",
-      recipientName: teacher.firstName + " " + teacher.lastName || teacher.name || "المعلم",
+      recipientName: teacher.firstName + " " + teacher.lastName  || "المدرب",
       messageType: "accept",
       fallbackToEnglish: true,
     });
     if (result.success) {
-      console.log("✅ تم إرسال إشعار قبول المعلم بنجاح");
+      console.log("✅ تم إرسال إشعار قبول المدرب بنجاح");
     } else {
-      console.error(`❌ فشل إرسال إشعار قبول المعلم: ${result.error}`);
+      console.error(`❌ فشل إرسال إشعار قبول المدرب: ${result.error}`);
     }
   } catch (err) {
-    console.error("❌ خطأ أثناء إرسال إشعار قبول المعلم عبر واتساب:", err.message);
+    console.error("❌ خطأ أثناء إرسال إشعار قبول المدرب عبر واتساب:", err.message);
   }
   res.send({
     status: 201,
@@ -880,20 +880,20 @@ const rejectTeacher = async (req, res) => {
       const result = await sendWhatsAppTemplate({
         to: teacher.phone,
         templateName,
-        variables: [teacher.firstName + " " + teacher.lastName || teacher.name || "المعلم"],
+        variables: [teacher.firstName + " " + teacher.lastName  || "المدرب"],
         language: language === "ar" ? "ar" : "en_US",
-        recipientName: teacher.firstName + " " + teacher.lastName || teacher.name || "المعلم",
+        recipientName: teacher.firstName + " " + teacher.lastName  || "المدرب",
         messageType: "reject",
         fallbackToEnglish: true,
       });
       if (result.success) {
-        console.log("✅ تم إرسال إشعار رفض المعلم بنجاح");
+        console.log("✅ تم إرسال إشعار رفض المدرب بنجاح");
       } else {
-        console.error(`❌ فشل إرسال إشعار رفض المعلم: ${result.error}`);
+        console.error(`❌ فشل إرسال إشعار رفض المدرب: ${result.error}`);
       }
     }
   } catch (err) {
-    console.error("❌ خطأ أثناء إرسال إشعار رفض المعلم عبر واتساب:", err.message);
+    console.error("❌ خطأ أثناء إرسال إشعار رفض المدرب عبر واتساب:", err.message);
   }
   res.send({
     status: 201,
@@ -5474,7 +5474,7 @@ const getAllAds = async (req, res) => {
       newArr.push(createobj);
     }
 
-    // إعلانات المعلمين
+    // إعلانات المدربين
     for (let i = 0; i < listAdsTeacher.length; i++) {
       const arrImages = await AdsImages.findAll({
         where: { AdsTeacherId: listAdsTeacher[i].id },
