@@ -18,6 +18,7 @@ const {
 const StudentLecture = require("../../models/StudentLecture");
 const {
   generateChargeConfirmationEmail,
+  generateInvoiceEmailBody,
 } = require("../../utils/EmailBodyGenerator");
 const { addPointsForPurchase } = require("./points.service");
 const { sendWhatsAppTemplate } = require("../../utils/whatsapp");
@@ -56,7 +57,7 @@ exports.handleThawaniPaymentCharge = async (data, newPrice, createEntityFn) => {
   if (result.success && result.code === 2004) {
     const created = await createEntityFn({
       StudentId: data.StudentId,
-      price:newPrice,
+      price: newPrice,
       currency: "OMR",
       isPaid: false,
       typeAr: "إيداع",
@@ -110,9 +111,9 @@ exports.handleThawaniPayment = async (data, newPrice, createEntityFn) => {
     global.session_id = result.data.session_id;
     global.typePay = data.type;
     created.sessionId = result.data.session_id;
-    global.TeacherId=data.TeacherId;
-    if (data.type=="lesson_booking") {
-      global.lessionRequestId=data.lessionRequestId;
+    global.TeacherId = data.TeacherId;
+    if (data.type == "lesson_booking") {
+      global.lessionRequestId = data.lessionRequestId;
     }
     await created.save();
 
@@ -133,14 +134,14 @@ exports.handleWalletPayment = async (data, newPrice, createEntityFn, type) => {
 
   const student = await Student.findOne({ where: { id: StudentId } });
   if (+student.wallet < +newPrice) {
-       return {
-    error: true,
-    status: 400,
-    msg: {
-      arabic: "رصيد المحفظة الحالي أقل من السعر المطلوب",
-      english: "Your current wallet is less than the required price",
-    }
-  };
+    return {
+      error: true,
+      status: 400,
+      msg: {
+        arabic: "رصيد المحفظة الحالي أقل من السعر المطلوب",
+        english: "Your current wallet is less than the required price",
+      }
+    };
   }
 
   const created = await createEntityFn(data);
@@ -186,11 +187,13 @@ exports.handleWalletPayment = async (data, newPrice, createEntityFn, type) => {
 
   // send email
   const mailOptions = generateChargeConfirmationEmail(
+    {
     language,
-    student.name,
-    student.email,
-    newPrice,
-    currency,
+    email:student.email,
+    name:student.name,
+    price:newPrice,
+    currency:currency,
+  }
   );
   await sendEmail(mailOptions);
 
@@ -262,25 +265,25 @@ exports.handlePointsPayment = async (data, newPrice, createEntityFn, type) => {
 
   const student = await Student.findOne({ where: { id: StudentId } });
   const studentInvite = await Invite.findOne({ where: { userId: StudentId } });
-  if(!studentInvite){
-           return {
-    error: true,
-    status: 400,
-    msg: {
-      arabic: "للاسف لا تمتلك اي نقاط مكتسبة",
-      english: "Unfortunately, you don't have any acquired points."
-    }
-  };
+  if (!studentInvite) {
+    return {
+      error: true,
+      status: 400,
+      msg: {
+        arabic: "للاسف لا تمتلك اي نقاط مكتسبة",
+        english: "Unfortunately, you don't have any acquired points."
+      }
+    };
   }
   if ((+studentInvite.amountPoints / 50) < +newPrice) {
-       return {
-    error: true,
-    status: 400,
-    msg: {
-      arabic: "رصيد من النقاط المكتسبة الحالي غير كافي للشراء",
-      english: "A balance of the current acquired points is not sufficient to buy"
-    }
-  };
+    return {
+      error: true,
+      status: 400,
+      msg: {
+        arabic: "رصيد من النقاط المكتسبة الحالي غير كافي للشراء",
+        english: "A balance of the current acquired points is not sufficient to buy"
+      }
+    };
   }
 
   const created = await createEntityFn(data);
@@ -310,12 +313,16 @@ exports.handlePointsPayment = async (data, newPrice, createEntityFn, type) => {
   await addToAdminWallet(amountadmin);
 
   // send email
-  const mailOptions = generateChargeConfirmationEmail(
-    language,
-    student.name,
-    student.email,
-    newPrice,
-    currency,
+  const mailOptions = generateInvoiceEmailBody(
+    {
+      language,
+      studentName: student.name,
+      email: student.email,
+      itemName: type,
+      price: newPrice,
+      currency: currency,
+      date: new Date() // ⬅️ مفقود أيضًا في دالتك
+    }
   );
   await sendEmail(mailOptions);
 
@@ -408,13 +415,13 @@ exports.handleconfirmePayment = async (language) => {
   let session;
 
   if (global.typePay === "lesson_booking") {
-session = await Session.findOne({ where: { sessionId: global.session_id } });
+    session = await Session.findOne({ where: { sessionId: global.session_id } });
 
-const lession = await Lessons.findByPk(global.lessionRequestId);
-if (!lession) throw new Error("Lesson not found");
+    const lession = await Lessons.findByPk(global.lessionRequestId);
+    if (!lession) throw new Error("Lesson not found");
 
-lession.status = "paid";
-await lession.save();
+    lession.status = "paid";
+    await lession.save();
   } else if (global.typePay === "test_booking") {
     session = await StudentTest.findOne({ where: { sessionId: global.session_id } });
   } else if (global.typePay === "lecture_booking") {
@@ -437,12 +444,13 @@ await lession.save();
     await student.save();
 
     const mailOptions = generateChargeConfirmationEmail(
+      {
       language,
-      student.name,
-      student.email,
-      wallet.price,
-      wallet.currency,
-      wallet.sessionId,
+      email:student.email,
+      name:student.name,
+      price:wallet.price,
+      currency:wallet.currency,
+    }
     );
     await sendEmail(mailOptions);
 
@@ -527,15 +535,27 @@ await lession.save();
   const student = await Student.findOne({ where: { id: StudentId } });
   await addPointsForPurchase({ studentId: student.id, teacherId: teacher.id });
 
-  const mailOptions = generateChargeConfirmationEmail(
+  const mailOptions = generateInvoiceEmailBody({
     language,
-    student.name,
-    student.email,
-    session.price,
-    session.currency,
-    session.sessionId,
-  );
+    studentName: student.name,
+    email: student.email,
+    itemName: global.typePay,
+    price: session.price,
+    currency: session.currency,
+    date: new Date() // ⬅️ مفقود أيضًا في دالتك
+  });
+const mailOptionsTeacher = generateInvoiceEmailBody({
+  language,
+  studentName: teacher.firstName+" "+teacher.lastName,
+  email: teacher.email,
+  itemName: global.typePay,
+  price: session.price,
+  currency: session.currency,
+  date: new Date() // ✅ التاريخ موجود ومُمرّر للدالة
+});
+
   await sendEmail(mailOptions);
+  await sendEmail(mailOptionsTeacher);
 
   try {
     const templateName =
@@ -554,6 +574,19 @@ await lession.save();
       ],
       language: templateName.includes("_ar") ? "ar" : "en_US",
       recipientName: student.name,
+      messageType: "payment_confirmation",
+    });
+    await sendWhatsAppTemplate({
+      to: teacher.phone,
+      templateName,
+      variables: [
+        teacher.firstName+" "+teacher.lastName,
+        session.price.toString(),
+        session.currency,
+        session.type,
+      ],
+      language: templateName.includes("_ar") ? "ar" : "en_US",
+      recipientName: teacher.firstName+" "+teacher.lastName,
       messageType: "payment_confirmation",
     });
 
@@ -581,6 +614,33 @@ await lession.save();
         teacherName: teacher.name || `${teacher.firstName} ${teacher.lastName}`,
         subject: session.type,
         duration: session.period || "60",
+      },
+    });
+  
+    // teacher
+      await sendInvoiceWhatsApp({
+      to: teacher.phone,
+      customerName: teacher.firstName,
+      invoiceNumber: `PAY-${session.id}-${Date.now()}`,
+      totalAmount: session.price,
+      currency: session.currency,
+      paymentMethod: "thawani",
+      language,
+      invoiceType: global.typePay=="lesson_booking"
+        ? "lesson_payment"
+        : global.typePay=="lecture_booking"
+          ? "lecture_payment"
+          : global.typePay=="package_booking"
+            ? "package_payment"
+            : global.typePay=="test_booking"
+              ? "test_payment"
+              : global.typePay=="discount_booking"
+                ? "discount_payment"
+                : "general_payment",
+      transactionId: session.sessionId,
+      sessionDetails: {
+        teacherName: student.name ,
+        subject: global.typePay,
       },
     });
   } catch (whatsappError) {

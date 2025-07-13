@@ -35,7 +35,6 @@ const generateConfirmEmailBody = (code, language, email) => {
         from: process.env.APP_EMAIL,
         to: email,
         subject:
-         // "مرحباً بك في مسقط لتعليم قيادة السيارات! تأكيد بريدك الإلكتروني",
          "Welcome to Muscat Driving School! Confirm Your Email",
         html: `
         <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px; direction: rtl;">
@@ -466,24 +465,75 @@ const adminSendEmailBody = (message, language, email) => {
 </div>`,
       };
 };
-exports.generateInvoiceEmailBody = ({ studentName, itemName, price, currency, date }) => {
-  return `
-    <div style="font-family: Arial; line-height: 1.5">
-      <h2>Invoice</h2>
-      <p>Hello ${studentName},</p>
-      <p>Thank you for your purchase. Below are your invoice details:</p>
-      <ul>
+const generateInvoiceEmailBody = ({ language,studentName,email, itemName, price, currency,date }) => {
+   return language === "en"
+    ? {
+        from: process.env.APP_EMAIL,
+        to: email,
+        subject: "Deposit Confirmation Invoice",
+        html: `<div
+    style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px; direction: ltr;">
+    <div style="text-align: center; padding: 10px 0; background-color: #f4f4f4; border-bottom: 1px solid #ddd;">
+        <h1>Muscat Driving School</h1>
+        <h2>Deposit Confirmation Invoice</h2>
+    </div>
+    <h2>Invoice</h2>
+    <p>Hello ${studentName},</p>
+    <p>Thank you for your purchase. Below are your invoice details:</p>
+    <ul>
         <li><strong>Item:</strong> ${itemName}</li>
         <li><strong>Amount:</strong> ${price} ${currency}</li>
         <li><strong>Date:</strong> ${new Date(date).toLocaleDateString("en-US")}</li>
-      </ul>
-      <p>If you have any questions, feel free to contact us.</p>
-      <p>Best regards,<br/>Support Team</p>
+    </ul>
+    <div
+        style="margin-top: 20px; padding: 10px; text-align: center; background-color: #f4f4f4; border-top: 1px solid #ddd;">
+        <p>Best regards,</p>
+        Muscat Driving School
+        <br>
+        <a href="https://muscatdrivingschool.com">muscatdrivingschool.com</a><br>
+        <p>© Muscat Driving School. All rights reserved.</p>
+        <p>By sending this email, you acknowledge and agree to our <a
+        href="https://muscatdrivingschool.com/TermsAndConditions">Terms of Service</a> and <a
+        href="https://muscatdrivingschool.com/PrivacyPolicy">Privacy Policy</a>.</p>
     </div>
-  `;
+</div>
+`,
+      }
+    : {
+        from: process.env.APP_EMAIL,
+        to: email,
+        subject:
+          "فاتورة تأكيد الإيداع",
+        html: `    <div
+        style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px; direction: rtl;">
+        <div style="text-align: center; padding: 10px 0; background-color: #f4f4f4; border-bottom: 1px solid #ddd;">
+            <h1> مسقط لتعليم قيادة السيارات</h1>
+            <h2> فاتورة تأكيد الإيداع</h2>
+        </div>
+        <h2>فاتورة</h2>
+        <p>أهلا ${studentName},</p>
+        <p>شكرًا لشرائك. إليك تفاصيل فاتورتك:</p>
+        <ul>
+            <li><strong>نوع الفاتورة:</strong> ${itemName}</li>
+            <li><strong>المبلغ:</strong> ${price} ${currency}</li>
+            <li><strong>Date:</strong> ${new Date(date).toLocaleDateString("en-US")}</li>
+        </ul>
+        <div
+            style="margin-top: 20px; padding: 10px; text-align: center; background-color: #f4f4f4; border-top: 1px solid #ddd;">
+            <p>أطيب التحيات،</p>
+            مسقط لتعليم قيادة السيارات
+            <br>
+            <a href="muscatdrivingschool.com">muscatdrivingschool.com</a><br></p>
+            <p>مسقط لتعليم قيادة السيارات © . جميع الحقوق محفوظة.</p>
+            <p>بإرسال هذا البريد الإلكتروني، فإنك تقر وتوافق على <a
+            href="muscatdrivingschool.com/TermsAndConditions">شروط الخدمة</a> و <a
+            href="muscatdrivingschool.com/PrivacyPolicy">سياسة الخصوصية</a> الخاصة بنا.</p>
+        </div>
+    </div>`,
+      };
 };
 
-exports.generateChargeInvoiceEmail = (
+const generateChargeInvoiceEmail = (
   language,
   name,
   email,
@@ -567,4 +617,5 @@ module.exports = {
   generateTeacherSessionNoticeEmail,
   generateSessionPaymentConfirmation,
   adminSendEmailBody,
+  generateInvoiceEmailBody
 };
