@@ -1456,31 +1456,95 @@ const endLesson = async (req, res) => {
 };
 
 const requestCheckout = async (req, res) => {
-  const { TeacherId } = req.params;
-  const teacher = await Teacher.findOne({ where: { id: TeacherId } });
-  if (!teacher) {
-    throw serverErrs.BAD_REQUEST({
-      arabic: "المدرب غير موجود",
-      english: "trainer not found",
+  try {
+    const { TeacherId } = req.params;
+    const { amount, method, phoneNumber, bankInfo } = req.body;
+
+    const teacher = await Teacher.findOne({ where: { id: TeacherId } });
+    if (!teacher) {
+      throw serverErrs.BAD_REQUEST({
+        arabic: "المدرب غير موجود",
+        english: "Trainer not found",
+      });
+    }
+
+    const availableAmount = teacher.totalAmount - teacher.dues;
+
+    // تحقق من صحة المبلغ
+    if (!amount || amount <= 0 || amount > availableAmount) {
+      throw serverErrs.BAD_REQUEST({
+        arabic: "قيمة المبلغ غير صالحة",
+        english: "Invalid amount value",
+      });
+    }
+
+    // تحقق من طريقة الدفع
+    if (!method || !["phone", "bank"].includes(method)) {
+      throw serverErrs.BAD_REQUEST({
+        arabic: "طريقة الدفع غير صالحة",
+        english: "Invalid payment method",
+      });
+    }
+
+    // تحقق من البيانات المطلوبة بناءً على الطريقة
+    let checkoutData = {
+      TeacherId,
+      value: amount,
+      method,
+    };
+
+    if (method === "phone") {
+      if (!phoneNumber) {
+        throw serverErrs.BAD_REQUEST({
+          arabic: "رقم الهاتف مطلوب",
+          english: "Phone number is required",
+        });
+      }
+      checkoutData.phoneNumber = phoneNumber;
+    }
+
+    if (method === "bank") {
+      const { bankName, accountNumber, iban } = bankInfo || {};
+      if (!bankName || !accountNumber || !iban) {
+        throw serverErrs.BAD_REQUEST({
+          arabic: "بيانات الحساب البنكي مطلوبة",
+          english: "Bank account info is required",
+        });
+      }
+      checkoutData.bankName = bankName;
+      checkoutData.accountNumber = accountNumber;
+      checkoutData.iban = iban;
+    }
+
+    // إنشاء طلب السحب
+    const checkoutRequest = await CheckoutRequest.create(checkoutData);
+
+    // تحديث الرصيد المستحق
+    await teacher.update({
+      dues: teacher.dues + amount,
+    });
+
+    res.status(201).send({
+      status: 201,
+      data: checkoutRequest,
+      msg: {
+        arabic: "تم إرسال طلب الدفعة بنجاح",
+        english: "Request sent successfully",
+      },
+    });
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({
+      status: 500,
+      msg: {
+        arabic: "حدث خطأ أثناء معالجة الطلب",
+        english: "An error occurred while processing the request",
+      },
     });
   }
-  const amount = teacher.totalAmount - teacher.dues;
-  const checkoutRequest = await CheckoutRequest.create({
-    TeacherId: TeacherId,
-    value: amount,
-  });
-  await teacher.update({
-    dues: teacher.dues + amount,
-  });
-  res.send({
-    status: 201,
-    data: checkoutRequest,
-    msg: {
-      arabic: "تم إرسال طلب الدفعة بنجاح",
-      english: "successful send request payment",
-    },
-  });
 };
+
 const getProfitRatio = async (req, res) => {
   const admin = await Admin.findOne();
   res.send({

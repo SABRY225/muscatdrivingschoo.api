@@ -89,7 +89,8 @@ const {
   getAllParent,
   sendBulkMessages,
   AdminStats,
-  getCertificates
+  getCertificates,
+  deleteParents
 } = require("../controllers/admin");
 const checkUserAuth = require("../middlewares/checkUserAuth");
 const logout = require("../middlewares/logout");
@@ -393,6 +394,7 @@ adminRouter.delete("/drivinglicense/:drivingLicensesId",  verifyToken,  checkUse
 
 adminRouter.delete("/sessions/:sessionId",            verifyToken,    checkUserAuth("admin"), errorCatcher(deleteSessions));
 adminRouter.get("/parents",                           getAllParents);
+adminRouter.delete("/parents/:id",                           deleteParents);
 adminRouter.post("/sendMail",                         verifyToken,    checkUserAuth("admin"), errorCatcher(sendMail));
 adminRouter.post("/sendWhatsapp",                     verifyToken,    checkUserAuth("admin"), errorCatcher(sendWhatsapp));
 adminRouter.post("/sendWhatsappWaitingSendMessage",   verifyToken,    checkUserAuth("admin"), errorCatcher(sendWhatsappWaitingSendMessage));

@@ -16,6 +16,14 @@ const Session = Sequelize.define("Session", {
     type: DataTypes.STRING,
     allowNull: false,
   },
+  time: {
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
+  place:{
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
   period: {
     type: DataTypes.STRING,
     allowNull: false,

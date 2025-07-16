@@ -17,6 +17,9 @@ const createRequest = async (req, res, next) => {
       studentName,
       teacherId,
       date,
+      time,
+      typeLesson,
+      place,
       period,
       currency,
       price,
@@ -33,6 +36,9 @@ const createRequest = async (req, res, next) => {
       currency,
       price,
       type,
+      time,
+      typeLesson,
+      place,
     });
 
     // إشعارات المعلم والمدير

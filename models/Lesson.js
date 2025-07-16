@@ -33,6 +33,18 @@ const Lessons = sequelize.define("Lessons", {
     type: DataTypes.STRING,
     allowNull: false,
   },
+  time: {
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
+  place:{
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
+  typeLesson:{
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
   period: {
     type: DataTypes.STRING,
     allowNull: false,

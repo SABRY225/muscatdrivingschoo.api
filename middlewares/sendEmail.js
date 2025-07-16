@@ -32,13 +32,13 @@ const sendEmail = (mailOptions, smsOptions) => {
   } catch (error) {
     console.log(error);
   } finally {
-    console.log("Start Send SMS");
     if (smsOptions) {
-      try {
-        sendSMS(smsOptions);
-      } catch (error) {
-        console.log(error);
-      }
+    console.log("Start Send SMS");
+      // try {
+      //   sendSMS(smsOptions);
+      // } catch (error) {
+      //   console.log(error);
+      // }
     }
   }
 };

@@ -194,6 +194,7 @@ const getStudentsByParentId = async (req, res) => {
     const dataStudent = await ParentStudent.findAll({
       where: {
         ParentId: ParentId,
+        status:1,
       },
       include: {
         model: Student,

@@ -13,7 +13,7 @@ const AdminWallet = sequelize.define("AdminWallet", {
     allowNull: false,
   },
   amount: {
-    type: DataTypes.STRING,
+    type: DataTypes.FLOAT,
     allowNull: false,
   },
   date: {

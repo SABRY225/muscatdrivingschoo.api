@@ -11,7 +11,6 @@ const {
   getCredit,              getTeacherFinancial, updateNotification,
   getTeacherRate,         acceptLesson,        endLesson,
   getMyStudents,          requestCheckout,     getProfitRatio,
-  //ADD by eng.reem.shwky@gmail.com
   getNumbers,
   getAllCertificates,     updateTeacherCertificates,  deleteTeacherCertificates,
   createLecture,          getLectureByTeacherId,      deleteLecture,    getSingleLecture,   updateLecture,
@@ -82,7 +81,7 @@ teacherRouter.patch(
 );
 teacherRouter.patch("/endLesson/:TeacherId",verifyToken,checkUserAuth("teacher"),errorCatcher(endLesson));
 
-teacherRouter.get("/request-checkout/:TeacherId", verifyToken,  checkUserAuth("teacher"), errorCatcher(requestCheckout) );
+teacherRouter.post("/request-checkout/:TeacherId", verifyToken,  checkUserAuth("teacher"), errorCatcher(requestCheckout) );
 teacherRouter.get("/profit-ratio", errorCatcher(getProfitRatio));
 //ADD By eng.reem.shwky@gamil.com
 teacherRouter.post("/exchangerequestteachers",errorCatcher(createExchangeRequestsTeacher));

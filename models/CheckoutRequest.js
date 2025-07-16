@@ -16,6 +16,26 @@ const CheckoutRequest = sequelize.define("CheckoutRequest", {
     type: DataTypes.INTEGER,
     defaultValue: 0,
   },
+  method: {
+    type: DataTypes.ENUM("phone", "bank"),
+    allowNull: false,
+  },
+  phoneNumber: {
+    type: DataTypes.STRING,
+    allowNull: true, // فقط عند method = "phone"
+  },
+  bankName: {
+    type: DataTypes.STRING,
+    allowNull: true, // فقط عند method = "bank"
+  },
+  accountNumber: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  iban: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
 });
 
 module.exports = CheckoutRequest;

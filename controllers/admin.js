@@ -4216,6 +4216,21 @@ const getAllParents = async (req, res) => {
   });
 };
 
+const deleteParents = async (req, res) => {
+  try {
+    const { id } = req.params;
+      const deleted = await Parent.findByPk(id);
+     if (!deleted) {
+      return res.status(404).json({ success: false, message: "Parent not found" });
+    }
+
+  await deleted.destroy();
+    res.json({ success: true, message: "Parent deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 const rejectTeacherLecture = async (req, res) => {
   const { lectrueId } = req.params;
   const objLecture = await TeacherLecture.findOne({
@@ -5345,13 +5360,13 @@ const getNumbersExchangeRequests = async (req, res) => {
 
   const studentNumWaiting = await ExchangeRequestsStudent.count({
     where: {
-      status: ["1", "-1"],
+      status: ["1"],
     },
   });
 
   const teacherNumWaiting = await ExchangeRequestsTeacher.count({
     where: {
-      status: ["-1", "1"],
+      status: ["1"],
     },
   });
 
@@ -6057,8 +6072,6 @@ const getParentsWithoutPassword = async (req, res) => {
 const getYearlyRevenue = async (req, res) => {
   try {
     const currentYear = new Date().getFullYear();
-    console.log(currentYear);
-
 
     const revenues = await AdminWallet.findAll({
       attributes: [
@@ -6081,6 +6094,7 @@ const getYearlyRevenue = async (req, res) => {
     res.status(500).json({ success: false, message: "Internal Server Error" });
   }
 };
+
 
 const getAllParent = async (req, res) => {
   try {
@@ -6612,4 +6626,5 @@ module.exports = {
   deleteAdsDepartment, updateAdsDepartment, updateAdsStatus,
   updateCareerStatus, sendWhatsapp, sendWhatsappWaitingSendMessage,
   getWhatsData,
+  deleteParents
 };
