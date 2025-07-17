@@ -23,6 +23,9 @@ const {
   getEvaluationsByStudent,
   checkStudentSubscription,
   getStudentStats,
+  getAllLessonsPackage,
+  getComingLessonsPackage,
+  getPreviousLessonsPackage,
 } = require("../controllers/student");
 const checkUserAuth = require("../middlewares/checkUserAuth");
 const verifyToken   = require("../middlewares/verifyToken");
@@ -46,10 +49,13 @@ studentRouter.get(
 studentRouter.get("/Credit/:studentId", errorCatcher(getStudentCredit));
 studentRouter.get("/wallet/:studentId", errorCatcher(getWalletHistory));
 studentRouter.get("/lessons/:studentId", errorCatcher(getAllLessons));
+studentRouter.get("/lessons/package/:studentId", errorCatcher(getAllLessonsPackage));
 studentRouter.get("/teachers/:studentId", errorCatcher(getMyTeachers));
 studentRouter.get("/comingLessons/:studentId", errorCatcher(getComingLessons));
-
+studentRouter.get("/comingLessons/package/:studentId", errorCatcher(getComingLessonsPackage));
 studentRouter.get("/previousLessons/:studentId", errorCatcher(getPreviousLessons) );
+studentRouter.get("/previousLessons/package/:studentId", errorCatcher(getPreviousLessonsPackage) );
+
 studentRouter.put("/resetPassword/:StudentId",verifyToken,checkUserAuth("student"),errorCatcher(resetPassword));
 studentRouter.post("/rateTeacher", verifyToken,  checkUserAuth("student"), errorCatcher(rateTeacher) );
 studentRouter.get("/class/:levelId", errorCatcher(getClassByLevelId));

@@ -24,6 +24,7 @@ const Notification = sequelize.define("Notification", {
                              'chat_message',
                              'lesson_start',
                              'lesson_accept',
+                             'certificate',
                              'lesson_end',
                              'register_student',
                              'register_teacher',

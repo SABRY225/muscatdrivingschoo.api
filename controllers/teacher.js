@@ -35,6 +35,7 @@ const dotenv = require("dotenv");
 const {
   generateConfirmEmailBody,
   generateWelcomeEmailBody,
+  generateCertificateHTML,
 } = require("../utils/EmailBodyGenerator");
 const {
   generateConfirmEmailSMSBody,
@@ -55,6 +56,7 @@ const Evaluations = require("../models/Evaluation");
 const Lessons = require("../models/Lesson");
 const StudentLecture = require("../models/StudentLecture");
 const convertCurrency = require("../utils/convertCurrency");
+const Notification = require("../models/Notification");
 
 dotenv.config();
 let currencyConverter = new CC();
@@ -1410,28 +1412,22 @@ const endLesson = async (req, res) => {
       Teacher.findByPk(session.TeacherId),
     ]);
 
-    // إرسال رسالة واتساب عند إنهاء الدرس
-    await sendLessonNotification({
-      type: "lesson_ended",
+   
+    const message = lang === "ar" ? "انتهى الدرس الآن." : "The lesson is now finished.";
+
+
+    // إرسال الإيميلات بالتوازي
+    await Promise.all([
+      sendLessonNotification({
+      type: "lesson_end",
       student,
       teacher,
       language: lang,
       lessonDetails: {
-        date: session.date || new Date().toLocaleDateString("ar-EG"),
-        time: session.period || new Date().toLocaleTimeString("ar-EG"),
+        date: session.date,
+        time: session.time ,
       },
-    });
-
-    const message = lang === "ar" ? "انتهى الدرس الآن." : "The lesson is now finished.";
-
-    // إرسال الإشعارات بالتوازي
-    await Promise.all([
-      sendNotification(message, message, session.StudentId, "lesson_end", "student"),
-      sendNotification(message, message, TeacherId, "lesson_end", "teacher"),
-    ]);
-
-    // إرسال الإيميلات بالتوازي
-    await Promise.all([
+    }),
       sendLessonEmail(student.email, lang, message, "end"),
       sendLessonEmail(teacher.email, lang, message, "end"),
     ]);
@@ -3088,10 +3084,20 @@ const availbleTeacher =async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 }
-const addEvaluations = async(req,res)=>{
-try {
-    const { TeacherId, StudentId, StudentName, certificateDate,teacherSignature, trainingStage } = req.body;
 
+const addEvaluations = async (req, res) => {
+  try {
+    const {
+      TeacherId,
+      StudentId,
+      StudentName,
+      certificateDate,
+      teacherSignature,
+      trainingStage,
+      language, // لو حابب ترسل الإيميل حسب اللغة
+    } = req.body;
+
+    // 📝 إنشاء التقييم
     const evaluation = await Evaluations.create({
       TeacherId,
       StudentId,
@@ -3101,17 +3107,46 @@ try {
       teacherSignature,
     });
 
+    // 📬 إرسال بريد إلكتروني
+    const student = await Student.findByPk(StudentId);
+    if (student && student.email) {
+      const mailOptions = generateCertificateHTML({
+        language,
+        studentName: StudentName,
+        date:certificateDate,
+        certificateTitle:trainingStage,
+        email:student.email
+      });
+
+      await sendEmail(mailOptions);
+    }
+
+    // 🔔 إنشاء تنبيه للطالب
+    await Notification.create({
+      userId: StudentId,
+      userType: "student",
+      title: language === "ar" ? "تم إصدار شهادة جديدة" : "New Certificate Issued",
+      messageAr: `تم إصدار شهادة جديدة بتاريخ ${new Date(certificateDate).toLocaleDateString("ar-EG")}`,
+      messageEn : `A new certificate was issued on ${new Date(certificateDate).toLocaleDateString("en-US")}`,
+      type: "certificate",
+    });
+
     res.status(201).json({
       msg: {
-        arabic:"تم حفظ التقييم بنجاح",
-        english:"The evaluation was saved successfully."
+        arabic: "تم حفظ التقييم وإرسال الشهادة بنجاح",
+        english: "Evaluation saved and certificate email sent successfully",
       },
       data: evaluation,
     });
   } catch (err) {
-    res.status(500).json({ msg: "حدث خطأ أثناء إنشاء التقييم", error: err.message });
+    console.error(err);
+    res.status(500).json({
+      msg: "حدث خطأ أثناء إنشاء التقييم أو إرسال البريد",
+      error: err.message,
+    });
   }
-}
+};
+
 
 const getTeacherStats = async (req, res) => {
   try {

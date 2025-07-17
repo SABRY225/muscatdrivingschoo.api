@@ -152,27 +152,27 @@ const sendLessonNotification = async ({
   student,
   teacher,
   adminId,
-  language = "ar", // اللغة من الطلب
+  language , // اللغة من الطلب
   lessonDetails = {},
 }) => {
   const notificationTypes = {
-    lesson_request: {
+    lesson_booking: {
       ar: "طلب حجز درس جديد",
       en: "New lesson booking request",
     },
-    lesson_approved: {
+    lesson_approved_request: {
       ar: "تم قبول طلب الدرس",
       en: "Lesson request approved",
     },
-    lesson_rejected: {
+    lesson_canceled_request: {
       ar: "تم رفض طلب الدرس",
       en: "Lesson request rejected",
     },
-    lesson_started: {
+    lesson_start: {
       ar: "بدأ الدرس",
       en: "Lesson started",
     },
-    lesson_ended: {
+    lesson_end: {
       ar: "انتهى الدرس",
       en: "Lesson ended",
     },
@@ -196,28 +196,28 @@ const sendLessonNotification = async ({
       let templateName;
       // تحديد القالب المناسب للطالب حسب نوع الإشعار واللغة
       switch (type) {
-        case "lesson_request":
+        case "lesson_booking":
           // طلب الدرس لا يرسل للطالب، فقط للمعلم
           break;
-        case "lesson_approved":
+        case "lesson_approved_request":
           templateName =
             language === "ar"
               ? LESSON_TEMPLATES.LESSON_APPROVED_STUDENT_AR
               : LESSON_TEMPLATES.LESSON_APPROVED_STUDENT_EN;
           break;
-        case "lesson_rejected":
+        case "lesson_canceled_request":
           templateName =
             language === "ar"
               ? LESSON_TEMPLATES.LESSON_REJECTED_STUDENT_AR
               : LESSON_TEMPLATES.LESSON_REJECTED_STUDENT_EN;
           break;
-        case "lesson_started":
+        case "lesson_start":
           templateName =
             language === "ar"
               ? LESSON_TEMPLATES.LESSON_STARTED_STUDENT_AR
               : LESSON_TEMPLATES.LESSON_STARTED_STUDENT_EN;
           break;
-        case "lesson_ended":
+        case "lesson_end":
           templateName =
             language === "ar"
               ? LESSON_TEMPLATES.LESSON_ENDED_STUDENT_AR
@@ -232,8 +232,8 @@ const sendLessonNotification = async ({
           variables: [
             student.name || "الطالب",
             teacher?.firstName || "المدرب",
-            lessonDetails.date || new Date().toLocaleDateString("ar-EG"),
-            lessonDetails.time || new Date().toLocaleTimeString("ar-EG"),
+            lessonDetails.date ,
+            lessonDetails.time ,
           ],
           language: templateName.includes("_ar") ? "ar" : "en_US",
           recipientName: student.name || "الطالب",
@@ -264,25 +264,25 @@ const sendLessonNotification = async ({
 
       // تحديد القالب المناسب للمعلم حسب نوع الإشعار واللغة
       switch (type) {
-        case "lesson_request":
+        case "lesson_booking":
           templateName =
             language === "ar"
               ? LESSON_TEMPLATES.LESSON_REQUEST_TEACHER_AR
               : LESSON_TEMPLATES.LESSON_REQUEST_TEACHER_EN;
           break;
-        case "lesson_approved":
+        case "lesson_approved_request":
           // موافقة الدرس لا ترسل للمعلم، فقط للطالب
           break;
-        case "lesson_rejected":
+        case "lesson_canceled_request":
           // رفض الدرس لا يرسل للمعلم، فقط للطالب
           break;
-        case "lesson_started":
+        case "lesson_start":
           templateName =
             language === "ar"
               ? LESSON_TEMPLATES.LESSON_STARTED_TEACHER_AR
               : LESSON_TEMPLATES.LESSON_STARTED_TEACHER_EN;
           break;
-        case "lesson_ended":
+        case "lesson_end":
           templateName =
             language === "ar"
               ? LESSON_TEMPLATES.LESSON_ENDED_TEACHER_AR
@@ -297,8 +297,8 @@ const sendLessonNotification = async ({
           variables: [
             teacher.firstName || "المدرب",
             student?.name || "الطالب",
-            lessonDetails.date || new Date().toLocaleDateString("ar-EG"),
-            lessonDetails.time || new Date().toLocaleTimeString("ar-EG"),
+            lessonDetails.date ,
+            lessonDetails.time ,
           ],
           language: templateName.includes("_ar") ? "ar" : "en_US",
           recipientName: teacher.firstName || "المدرب",

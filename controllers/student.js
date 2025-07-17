@@ -727,6 +727,22 @@ const getAllLessons = async (req, res) => {
     },
   });
 };
+const getAllLessonsPackage = async (req, res) => {
+  const { studentId } = req.params;
+  const lessons = await Session.findAll({
+    where: { StudentId: studentId, isPaid: true,type:"Package Lesson" },
+    include: [{ model: Teacher }],
+  });
+
+  res.send({
+    status: 201,
+    data: lessons,
+    msg: {
+      arabic: "تم ارجاع جميع الجلسات بنجاح",
+      english: "successful get all lessons",
+    },
+  });
+};
 
 const getMyTeachers = async (req, res) => {
   const { studentId } = req.params;
@@ -774,6 +790,27 @@ const getComingLessons = async (req, res) => {
     },
   });
 };
+const getComingLessonsPackage = async (req, res) => {
+  const { studentId } = req.params;
+  const comingLessons = await Session.findAll({
+    where: {
+      StudentId: studentId,
+      isPaid: true,
+      type:"Package Lesson",
+      date: { [Op.gte]: new Date() },
+    },
+    include: [{ model: Teacher }],
+  });
+
+  res.send({
+    status: 201,
+    data: comingLessons,
+    msg: {
+      arabic: "تم ارجاع جميع الجلسات القادمة",
+      english: "successful get all Coming Lessons",
+    },
+  });
+};
 
 const getPreviousLessons = async (req, res) => {
   const { studentId } = req.params;
@@ -781,6 +818,28 @@ const getPreviousLessons = async (req, res) => {
     where: {
       StudentId: studentId,
       isPaid: true,
+      date: { [Op.lt]: new Date() },
+    },
+    include: [{ model: Teacher }],
+  });
+
+  res.send({
+    status: 201,
+    data: previousLessons,
+    msg: {
+      arabic: "تم ارجاع جميع الجلسات السابقة",
+      english: "successful get all Previous Lessons",
+    },
+  });
+};
+
+const getPreviousLessonsPackage = async (req, res) => {
+  const { studentId } = req.params;
+  const previousLessons = await Session.findAll({
+    where: {
+      StudentId: studentId,
+      isPaid: true,
+      type:"Package Lesson",
       date: { [Op.lt]: new Date() },
     },
     include: [{ model: Teacher }],
@@ -986,23 +1045,23 @@ const startLesson = async (req, res) => {
       Teacher.findByPk(session.TeacherId),
     ]);
 
-    // إرسال رسالة واتساب عند بدء الدرس
-    await sendLessonNotification({
-      type: "lesson_started",
-      student,
-      teacher,
-      language: lang,
-      lessonDetails: {
-        date: session.date || new Date().toLocaleDateString("ar-EG"),
-        time: session.period || new Date().toLocaleTimeString("ar-EG"),
-      },
-    });
+   
 
     const message = lang === "ar" ? "تم بدء الدرس الان" : "The lesson has started now";
 
     await Promise.all([
-      sendNotification(message, message, StudentId, "lesson_start", "student"),
-      sendNotification(message, message, teacher.id, "lesson_start", "teacher"),
+    // إرسال رسالة واتساب عند بدء الدرس
+     sendLessonNotification({
+      type: "lesson_start",
+      student,
+      teacher,
+      adminId:"1",
+      language: lang,
+      lessonDetails: {
+        date: session.date ,
+        time: session.time ,
+      },
+    }),
       sendLessonEmail(student.email, lang, message, "start"),
       sendLessonEmail(teacher.email, lang, message, "start"),
     ]);
@@ -2186,6 +2245,7 @@ module.exports = {
   settingNotification,      getParentsByStudentId,
   updateLogout,             bookLecture,          bookPackage,
   bookTest,                 getStudentTests,      getStudentLectures,
-  getStudentPackages,       getRefundStudentById, getStudentDiscounts,
+  getStudentPackages,       getRefundStudentById, getStudentDiscounts,getAllLessonsPackage,
+  getComingLessonsPackage,getPreviousLessonsPackage
   
 };

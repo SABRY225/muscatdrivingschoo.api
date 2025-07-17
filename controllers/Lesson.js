@@ -41,32 +41,15 @@ const createRequest = async (req, res, next) => {
       place,
     });
 
-    // إشعارات المعلم والمدير
-    const notifications = [
-      Notification.create({
-        userId: teacherId,
-        userType: "teacher",
-        type: "lesson_booking",
-        messageAr: "طلب بحجز درس جديد",
-        messageEn: "Request to book a new lesson",
-      }),
-      Notification.create({
-        userId: 1,
-        userType: "admin",
-        type: "lesson_booking",
-        messageAr: "طلب بحجز درس جديد",
-        messageEn: "Request to book a new lesson",
-      }),
-    ];
 
     // تنفيذ العمليات بالتوازي
-    const [lesson] = await Promise.all([lessonPromise, ...notifications]);
+    const [lesson] = await Promise.all([lessonPromise]);
 
     // البحث عن المعلم والطالب
     const teacher = await Teacher.findOne({ where: { id: teacherId } });
     const student = await Student.findOne({ where: { id: studentId } });
 
-    if (teacher?.email) {
+  try {
       const transporter = nodemailer.createTransport({
         host: "premium174.web-hosting.com",
         port: 465,
@@ -91,33 +74,38 @@ const createRequest = async (req, res, next) => {
         html: emailHtml,
       };
 
-      try {
+      
         const info = await transporter.sendMail(mailOptions);
         console.log("✅ Email sent:", info.response);
-      } catch (emailErr) {
+    } catch (emailErr) {
         console.error("❌ Failed to send email:", emailErr.message);
-      }
-    } else {
-      console.warn("⚠️ No email found for teacher ID:", teacherId);
     }
+    
 
     // إرسال رسائل واتساب لطلب حجز الدرس
     try {
       await sendLessonNotification({
-        type: "lesson_request",
+        type: "lesson_booking",
         student: student,
         teacher: teacher,
         adminId: "1",
         language: lang,
         lessonDetails: {
           date: date,
-          time: date,
+          time: time,
           price: price,
           currency: currency,
           period: period,
         },
       });
       console.log("✅ WhatsApp notifications sent for lesson request");
+      res.status(200).send({
+      status: 200,
+      message: {
+        arabic: "تم إرسال الطلب والإشعارات بنجاح",
+        english: "Request and notifications sent successfully",
+      },
+    });
     } catch (whatsappError) {
       console.error(
         "❌ Failed to send WhatsApp notifications:",
@@ -125,13 +113,7 @@ const createRequest = async (req, res, next) => {
       );
     }
 
-    res.status(200).send({
-      status: 200,
-      message: {
-        arabic: "تم إرسال الطلب والإشعارات بنجاح",
-        english: "Request and notifications sent successfully",
-      },
-    });
+    
   } catch (error) {
     console.error("Error in createRequest:", error);
     res.status(500).send({
@@ -539,19 +521,11 @@ const acceptRequest = async (req, res) => {
     const studentPromise = Student.findOne({
       where: { id: lession.studentId },
     });
-    // const notificationPromise = Notification.create({
-    //   userId: lession.studentId,
-    //   userType: "Student",
-    //   type: "lesson_approved_request",
-    //   messageAr: "تأكيد طلب الحجز الدرس",
-    //   messageEn: "Confirm lesson reservation request",
-    // });
 
     lession.status = "approved";
 
-    const [student, notification] = await Promise.all([
+    const [student] = await Promise.all([
       studentPromise,
-      // notificationPromise,
       lession.save(),
     ]);
 
@@ -568,14 +542,14 @@ const acceptRequest = async (req, res) => {
         where: { id: lession.teacherId },
       });
       await sendLessonNotification({
-        type: "lesson_approved",
+        type: "lesson_approved_request",
         student: student,
         teacher: teacher,
         adminId: "1",
         language: req.body.lang || "ar",
         lessonDetails: {
           date: lession.date,
-          time: lession.date,
+          time: lession.time,
           period: lession.period,
           price: lession.price,
           currency: lession.currency,
@@ -583,6 +557,13 @@ const acceptRequest = async (req, res) => {
         },
       });
       console.log("✅ WhatsApp lesson approval notification sent");
+      return res.status(200).send({
+      status: 200,
+      message: {
+        arabic: "تم تأكيد طلب الحجز بنجاح",
+        english: "Lesson reservation confirmed successfully",
+      },
+    });
     } catch (whatsappError) {
       console.error(
         "❌ Failed to send WhatsApp lesson approval notification:",
@@ -590,13 +571,7 @@ const acceptRequest = async (req, res) => {
       );
     }
 
-    return res.status(200).send({
-      status: 200,
-      message: {
-        arabic: "تم تأكيد طلب الحجز بنجاح",
-        english: "Lesson reservation confirmed successfully",
-      },
-    });
+    
   } catch (error) {
     return res.status(500).send({
       status: 500,
@@ -631,19 +606,11 @@ const rejectRequest = async (req, res) => {
       where: { id: lession.studentId },
     });
     const updateStatusPromise = lession.update({ status: "canceled" });
-    const notificationPromise = Notification.create({
-      userId: lession.studentId,
-      userType: "Student",
-      type: "lesson_canceled_request",
-      messageAr: "تم رفض طلب الحجز الدرس",
-      messageEn: "The lesson reservation request was rejected.",
-    });
 
     // نفذهم مع بعض
     const [student] = await Promise.all([
       studentPromise,
       updateStatusPromise,
-      notificationPromise,
     ]);
 
     // إرسال البريد الإلكتروني
@@ -660,11 +627,11 @@ const rejectRequest = async (req, res) => {
         where: { id: lession.teacherId },
       });
       await sendLessonNotification({
-        type: "lesson_rejected",
+        type: "lesson_canceled_request",
         student: student,
         teacher: teacher,
         adminId: "1",
-        language: req.body.lang || "ar",
+        language: lang ,
         lessonDetails: {
           date: lession.date,
           time: lession.date,
@@ -674,6 +641,13 @@ const rejectRequest = async (req, res) => {
         },
       });
       console.log("✅ WhatsApp lesson rejection notification sent");
+      return res.status(200).send({
+      status: 200,
+      message: {
+        arabic: "تم رفض طلب حجز الدرس بنجاح",
+        english: "The lesson reservation request was rejected.",
+      },
+    });
     } catch (whatsappError) {
       console.error(
         "❌ Failed to send WhatsApp lesson rejection notification:",
@@ -681,13 +655,7 @@ const rejectRequest = async (req, res) => {
       );
     }
 
-    return res.status(200).send({
-      status: 200,
-      message: {
-        arabic: "تم رفض طلب حجز الدرس بنجاح",
-        english: "The lesson reservation request was rejected.",
-      },
-    });
+    
   } catch (error) {
     return res.status(500).send({
       status: 500,
