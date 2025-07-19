@@ -23,6 +23,27 @@ const {
 } = require("../../utils/EmailBodyGenerator");
 const { addPointsForPurchase } = require("./points.service");
 const { sendWhatsAppTemplate } = require("../../utils/whatsapp");
+
+const getServiceType = (type, language = 'ar') => {
+  const serviceTypes = {
+    'WITHDRAW': { ar: 'سحب', en: 'Withdraw' },
+    'DEPOSIT': { ar: 'إيداع', en: 'Deposit' },
+    'LESSON': { ar: 'حصة', en: 'Lesson' },
+    'PAYMENT': { ar: 'دفع', en: 'Payment' },
+    'booking': { ar: 'حجز', en: 'Booking' },
+    'lesson_booking': { ar: 'حجز حصة', en: 'Lesson Booking' },
+    'wallet_charge': { ar: 'شحن محفظة', en: 'Wallet Charge' },
+    'payment_confirmation': { ar: 'تأكيد دفع', en: 'Payment Confirmation' },
+    'wallet_charge_confirmation': { ar: 'تأكيد شحن المحفظة', en: 'Wallet Charge Confirmation' },
+    // يمكن إضافة المزيد من الأنواع عند الحاجة
+  };
+  
+  // البحث عن النوع مع تجاهل حالة الأحرف
+  const normalizedType = type && typeof type === 'string' ? type.toUpperCase() : type;
+  const service = serviceTypes[normalizedType] || { ar: type, en: type };
+  
+  return language === 'ar' ? service.ar : service.en;
+};
 const { PAYMENT_TEMPLATES } = require("../../config/whatsapp-templates");
 const { sendInvoiceWhatsApp } = require("../../utils/invoiceWhatsApp");
 const Invite = require("../../models/Invite");
@@ -210,7 +231,7 @@ exports.handleWalletPayment = async (data, newPrice, createEntityFn, type) => {
     await sendWhatsAppTemplate({
       to: student.phoneNumber,
       templateName,
-      variables: [student.name, newPrice.toString(), currency, type],
+      variables: [student.name, newPrice.toString(), currency, getServiceType(type, language)],
       language: templateName.includes("_ar") ? "ar" : "en_US",
       recipientName: student.name,
       messageType: "payment_confirmation",
@@ -339,7 +360,7 @@ exports.handlePointsPayment = async (data, newPrice, createEntityFn, type) => {
     await sendWhatsAppTemplate({
       to: student.phoneNumber,
       templateName,
-      variables: [student.name, newPrice.toString(), currency, type],
+      variables: [student.name, newPrice.toString(), currency, getServiceType(type, language)],
       language: templateName.includes("_ar") ? "ar" : "en_US",
       recipientName: student.name,
       messageType: "payment_confirmation",

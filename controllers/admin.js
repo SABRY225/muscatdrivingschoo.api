@@ -180,6 +180,31 @@ const createStudent = async (req, res) => {
     to: phoneNumber,
   };
   sendEmail(mailOptions, smsOptions);
+
+  // إرسال رسالة واتساب ترحيبية
+  try {
+    const { VERIFICATION_TEMPLATES } = require("../config/whatsapp-templates");
+    const { sendWhatsAppTemplate } = require("../utils/sendWhatsAppVerificationCode");
+    
+    const language = 'ar'; // أو يمكنك جعلها متغيرة حسب لغة المستخدم
+    const templateName = language === "ar"
+      ? VERIFICATION_TEMPLATES.WELCOME_STUDENT_AR
+      : VERIFICATION_TEMPLATES.WELCOME_STUDENT_EN;
+    
+    await sendWhatsAppTemplate({
+      to: "+" + phoneNumber, // إضافة علامة + للرقم
+      templateName,
+      variables: [newStudent.name || "الطالب"],
+      language: language === "ar" ? "ar" : "en_US",
+      recipientName: newStudent.name || "الطالب",
+      messageType: "welcome",
+      fallbackToEnglish: true,
+    });
+  } catch (error) {
+    console.error("Error sending welcome WhatsApp message:", error);
+    // لا نوقف العملية في حالة فشل إرسال رسالة الواتساب
+  }
+
   res.send({
     status: 201,
     data: null,
@@ -243,6 +268,31 @@ const createTeacher = async (req, res) => {
     to: phone,
   };
   sendEmail(mailOptions, smsOptions);
+
+  // إرسال رسالة واتساب ترحيبية
+  try {
+    const { VERIFICATION_TEMPLATES } = require("../config/whatsapp-templates");
+    const { sendWhatsAppTemplate } = require("../utils/sendWhatsAppVerificationCode");
+    
+    const language = 'ar'; // أو يمكنك جعلها متغيرة حسب لغة المستخدم
+    const templateName = language === "ar"
+      ? VERIFICATION_TEMPLATES.WELCOME_TEACHER_AR
+      : VERIFICATION_TEMPLATES.WELCOME_TEACHER_EN;
+    
+    await sendWhatsAppTemplate({
+      to: "+" + phone, // إضافة علامة + للرقم
+      templateName,
+      variables: [newTeacher.firstName + " " + newTeacher.lastName || "المدرب"],
+      language: language === "ar" ? "ar" : "en_US",
+      recipientName: newTeacher.firstName + " " + newTeacher.lastName || "المدرب",
+      messageType: "welcome",
+      fallbackToEnglish: true,
+    });
+  } catch (error) {
+    console.error("Error sending welcome WhatsApp message:", error);
+    // لا نوقف العملية في حالة فشل إرسال رسالة الواتساب
+  }
+
   res.send({
     status: 201,
     data: null,
@@ -252,6 +302,7 @@ const createTeacher = async (req, res) => {
     },
   });
 };
+
 //WhatsData
 const getWhatsData = async (req, res) => {
   const objwhatsData = await WhatsData.findOne({
@@ -301,12 +352,16 @@ const getProcessedCheckoutRequests = async (req, res) => {
   });
 };
 
+const { sendWhatsAppTemplate } = require("../utils/sendWhatsAppVerificationCode");
+const { VERIFICATION_TEMPLATES } = require("../config/whatsapp-templates");
+
 const acceptCheckout = async (req, res) => {
   const { checkoutId } = req.params;
   const checkout = await CheckoutRequest.findOne({
     where: {
       id: checkoutId,
     },
+    include: [Teacher]
   });
   if (!checkout) {
     throw new serverErrs.BAD_REQUEST({
@@ -314,36 +369,109 @@ const acceptCheckout = async (req, res) => {
       english: "checkout request not found",
     });
   }
+  
   await checkout.update({ status: 1 });
+  
+  // إرسال إشعار واتساب للمعلم
+  try {
+    const teacher = checkout.Teacher;
+    if (teacher && teacher.phone) {
+      const templateName = teacher.language === 'ar' 
+        ? VERIFICATION_TEMPLATES.WITHDRAWAL_APPROVED_AR 
+        : VERIFICATION_TEMPLATES.WITHDRAWAL_APPROVED_EN;
+      
+      await sendWhatsAppTemplate({
+        to: teacher.phone.startsWith('+') ? teacher.phone : `+${teacher.phone}`,
+        templateName,
+        variables: [
+          `${teacher.firstName} ${teacher.lastName}`,
+          checkout.value.toLocaleString(),
+          new Date().toLocaleDateString(teacher.language === 'ar' ? 'ar-EG' : 'en-US')
+        ],
+        language: teacher.language === 'ar' ? 'ar' : 'en_US',
+        recipientName: `${teacher.firstName} ${teacher.lastName}`,
+        messageType: 'withdrawal_approved',
+        fallbackToEnglish: true,
+      });
+    }
+  } catch (error) {
+    console.error('خطأ في إرسال إشعار القبول:', error);
+    // لا نوقف العملية في حالة فشل إرسال الإشعار
+  }
+  
   res.send({
     status: 201,
     msg: {
       arabic: "تم قبول طلب الدفع بنجاح",
-      english: "successful accepting Checkout Requests",
+      english: "Checkout request accepted successfully",
     },
   });
 };
 
 const rejectCheckout = async (req, res) => {
   const { checkoutId } = req.params;
+  const { rejectionReason } = req.body; // سبب الرفض (اختياري)
+  
   const checkout = await CheckoutRequest.findOne({
     where: {
       id: checkoutId,
     },
+    include: [Teacher]
   });
+  
   if (!checkout) {
     throw new serverErrs.BAD_REQUEST({
       arabic: "طلب الدفع غير موجود",
-      english: "checkout request not found",
+      english: "Checkout request not found",
     });
   }
-  await checkout.update({ status: -1 });
-
+  
+  await checkout.update({ 
+    status: -1,
+    rejectionReason: rejectionReason || null
+  });
+  
+  // إرسال إشعار واتساب للمعلم
+  try {
+    const teacher = checkout.Teacher;
+    if (teacher && teacher.phone) {
+      const templateName = teacher.language === 'ar' 
+        ? VERIFICATION_TEMPLATES.WITHDRAWAL_REJECTED_AR 
+        : VERIFICATION_TEMPLATES.WITHDRAWAL_REJECTED_EN;
+      
+      const variables = [
+        `${teacher.firstName} ${teacher.lastName}`,
+        checkout.value.toLocaleString(),
+        new Date().toLocaleDateString(teacher.language === 'ar' ? 'ar-EG' : 'en-US')
+      ];
+      
+      // إضافة سبب الرفض إذا وجد
+      if (rejectionReason) {
+        variables.push(rejectionReason);
+      } else {
+        variables.push(teacher.language === 'ar' ? 'لا يوجد سبب محدد' : 'No specific reason');
+      }
+      
+      await sendWhatsAppTemplate({
+        to: teacher.phone.startsWith('+') ? teacher.phone : `+${teacher.phone}`,
+        templateName,
+        variables,
+        language: teacher.language === 'ar' ? 'ar' : 'en_US',
+        recipientName: `${teacher.firstName} ${teacher.lastName}`,
+        messageType: 'withdrawal_rejected',
+        fallbackToEnglish: true,
+      });
+    }
+  } catch (error) {
+    console.error('خطأ في إرسال إشعار الرفض:', error);
+    // لا نوقف العملية في حالة فشل إرسال الإشعار
+  }
+  
   res.send({
-    status: 201,
+    status: 200,
     msg: {
       arabic: "تم رفض طلب الدفع بنجاح",
-      english: "successful rejecting Checkout Requests",
+      english: "Checkout request rejected successfully",
     },
   });
 };

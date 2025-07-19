@@ -25,6 +25,24 @@ const VERIFICATION_TEMPLATES = {
   // قالب اكتمال تسجيل المعلم
   TEACHER_REGISTRATION_COMPLETE_AR: "teacher_registration_complete_ar",
   TEACHER_REGISTRATION_COMPLETE_EN: "teacher_registration_complete_en",
+
+  //قوالب الشهادة 
+  CERTIFICATE_ISSUED_AR: "certificate_issued_ar",  // للغة العربية
+  CERTIFICATE_ISSUED_EN: "certificate_issued_en",   // للغة الإنجليزية
+
+  // في ملف whatsapp-templates.js
+  POINTS_ADDED_AR: "points_added_ar",  // للغة العربية
+  POINTS_ADDED_EN: "points_added_en",   // للغة الإنجليزية
+  
+  // قوالب طلبات السحب
+  WITHDRAWAL_REQUEST_AR: "withdrawal_request_ar",  // للغة العربية
+  WITHDRAWAL_REQUEST_EN: "withdrawal_request_en",   // للغة الإنجليزية
+  
+  // قوالب حالة طلب السحب
+  WITHDRAWAL_APPROVED_AR: "withdrawal_approved_ar",  // طلب السحب مقبول
+  WITHDRAWAL_APPROVED_EN: "withdrawal_approved_en",
+  WITHDRAWAL_REJECTED_AR: "withdrawal_rejected_ar",  // طلب السحب مرفوض
+  WITHDRAWAL_REJECTED_EN: "withdrawal_rejected_en"
 };
 
 // قوالب الدفع والمحفظة - Payment & Wallet Templates
