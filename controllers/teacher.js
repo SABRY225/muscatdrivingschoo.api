@@ -4,20 +4,23 @@ const {
   Parent,
   LangTeachStd,
   TeacherLevel,
-  CurriculumTeacher,      RemoteSession,          F2FSessionStd,
-  F2FSessionTeacher,      TeacherDay,     Certificates,
-  Experience,   EducationDegree,
-  Language,     Days,             Level,      Curriculum,
-  Subject,      Session,          FinancialRecord,    Rate,     CheckoutRequest,      Admin,
-  TrainingCategoryType,       LimeType,               TeacherTypes,
-  TeacherLimits,              TeacherLecture,         TeacherLesson,
-  TeacherQuestion,            TeacherQuestionChoose,
-  Package,                    SubjectCategory,
-  Tests,                      TeacherRefund,
+  CurriculumTeacher, RemoteSession, F2FSessionStd,
+  F2FSessionTeacher, TeacherDay, Certificates,
+  Experience, EducationDegree,
+  Language, Days, Level, Curriculum,
+  Subject, Session, FinancialRecord, Rate, CheckoutRequest, Admin,
+  TrainingCategoryType, LimeType, TeacherTypes,
+  TeacherLimits, TeacherLecture, TeacherLesson,
+  TeacherQuestion, TeacherQuestionChoose,
+  Package, SubjectCategory,
+  Tests, TeacherRefund,
   ExchangeRequestsTeacher,
   Class,
   AdsTeachers,
-  Career
+  Career,
+  StudentPackage,
+  StudentTest,
+  StudentDiscount
 } = require("../models");
 const { validateTeacher, loginValidation } = require("../validation");
 const { serverErrs } = require("../middlewares/customError");
@@ -28,7 +31,7 @@ const generateToken = require("../middlewares/generateToken");
 const path = require("path");
 const fs = require("fs");
 const TeacherSubject = require("../models/TeacherSubject");
-const { Op, fn , col, literal} = require("sequelize");
+const { Op, fn, col, literal } = require("sequelize");
 const { db } = require("../firebaseConfig");
 const CC = require("currency-converter-lt");
 const dotenv = require("dotenv");
@@ -76,7 +79,7 @@ const signUp = async (req, res, next) => {
     };
     const errorMessage2 = {
       arabic:
-         "عفوا , هذا البريد مستخدم سابقا",
+        "عفوا , هذا البريد مستخدم سابقا",
       english:
         "Sorry, this email address has already been used.",
     };
@@ -157,26 +160,26 @@ const verifyCode = async (req, res) => {
     throw serverErrs.BAD_REQUEST({
       //arabic: "الإيميل مستخدم سابقا",
       //english: "email is already used",
-      arabic      : "عفوا ، الحساب غير صالح ، نرجو مراجعه بياناتك مره اخري لكي يتم انشاء حسابك بشكل ناجح",
-      english     : "Sorry, the account is not valid. Please review your data again so that your account can be created successfully.",
+      arabic: "عفوا ، الحساب غير صالح ، نرجو مراجعه بياناتك مره اخري لكي يتم انشاء حسابك بشكل ناجح",
+      english: "Sorry, the account is not valid. Please review your data again so that your account can be created successfully.",
     });
   if (student)
     throw serverErrs.BAD_REQUEST({
       //arabic: "الإيميل مستخدم سابقا",
       //english: "email is already used",
-      arabic      : "عفوا ، الحساب غير صالح ، نرجو مراجعه بياناتك مره اخري لكي يتم انشاء حسابك بشكل ناجح",
-      english     : "Sorry, the account is not valid. Please review your data again so that your account can be created successfully.",
+      arabic: "عفوا ، الحساب غير صالح ، نرجو مراجعه بياناتك مره اخري لكي يتم انشاء حسابك بشكل ناجح",
+      english: "Sorry, the account is not valid. Please review your data again so that your account can be created successfully.",
     });
   if (parent)
     throw serverErrs.BAD_REQUEST({
       //arabic: "الإيميل مستخدم سابقا",
       //english: "email is already used",
-      arabic      : "عفوا ، الحساب غير صالح ، نرجو مراجعه بياناتك مره اخري لكي يتم انشاء حسابك بشكل ناجح",
-      english     : "Sorry, the account is not valid. Please review your data again so that your account can be created successfully.",
+      arabic: "عفوا ، الحساب غير صالح ، نرجو مراجعه بياناتك مره اخري لكي يتم انشاء حسابك بشكل ناجح",
+      english: "Sorry, the account is not valid. Please review your data again so that your account can be created successfully.",
     });
 
   const teacher = await Teacher.findOne({
-    where: {  email,  registerCode, },
+    where: { email, registerCode, },
   });
 
   if (!teacher)
@@ -271,7 +274,7 @@ const signPassword = async (req, res, next) => {
       token,
     });
   } catch (error) {
-    next(error);  
+    next(error);
   }
 };
 
@@ -391,7 +394,7 @@ const signAdditionalInfo = async (req, res) => {
     paypal_acc,
   } = req.body;
 
-  let { levels, curriculums  , trainingcategorytypes , limetypes} = req.body;
+  let { levels, curriculums, trainingcategorytypes, limetypes } = req.body;
   if (typeof levels === "string") {
     levels = JSON.parse(levels);
   }
@@ -403,7 +406,7 @@ const signAdditionalInfo = async (req, res) => {
     trainingcategorytypes = JSON.parse(trainingcategorytypes);
   }
 
-  if(typeof limetypes === "string"){
+  if (typeof limetypes === "string") {
     limetypes = JSON.parse(limetypes);
   }
 
@@ -487,12 +490,12 @@ const signAdditionalInfo = async (req, res) => {
     },
     include: { all: true },
   });
-  
+
   await teacher.save();
 
   res.send({
     status: 201,
-    data: { teacher, teacherLevels, curriculumTeachers, typesTeachers , limitTeachers },
+    data: { teacher, teacherLevels, curriculumTeachers, typesTeachers, limitTeachers },
     msg: {
       arabic: "تم تسجيل معلومات إضافية بنجاح",
       english: "successful sign Additional Information! ",
@@ -505,19 +508,19 @@ const getSingleTeacher = async (req, res) => {
   const teacher = await Teacher.findOne({
     where: { id: teacherId },
     include: [
-      { model: LangTeachStd,      include: [Language] },
+      { model: LangTeachStd, include: [Language] },
       { model: Experience },
       { model: EducationDegree },
       { model: Certificates },
-      { model: TeacherLecture     },
-      { model: TeacherLesson      },
-      { model: TeacherDay,        include: [Days] },
-      { model: TeacherLevel,      include: [Level] },
+      { model: TeacherLecture },
+      { model: TeacherLesson },
+      { model: TeacherDay, include: [Days] },
+      { model: TeacherLevel, include: [Level] },
       { model: CurriculumTeacher, include: [Curriculum] },
-      { model: TeacherSubject,    include: [Subject] },
-      { model: TeacherLimits,     include: [LimeType] },
-      { model: TeacherTypes,      include: [TrainingCategoryType] },
-      { model: Package,           },
+      { model: TeacherSubject, include: [Subject] },
+      { model: TeacherLimits, include: [LimeType] },
+      { model: TeacherTypes, include: [TrainingCategoryType] },
+      { model: Package, },
       { model: RemoteSession },
       { model: F2FSessionStd },
       { model: F2FSessionTeacher },
@@ -614,7 +617,7 @@ const addSubjects = async (req, res) => {
   if (remote || f2fStudent || f2fTeacher) {
     currency = (remote?.currency || f2fStudent?.currency || f2fTeacher?.currency || "OMR");
   }
-  const conversionRate = await convertCurrency(1,currency,"OMR")
+  const conversionRate = await convertCurrency(1, currency, "OMR")
 
   await TeacherSubject.destroy({
     where: {
@@ -781,15 +784,15 @@ const signAvailability = async (req, res) => {
 };
 
 const createExchangeRequestsTeacher = async (req, res) => {
-  const { amount, currency  , TeacherId, reason  } = req.body;
+  const { amount, currency, TeacherId, reason } = req.body;
   const newExchange = await ExchangeRequestsTeacher.create(
     {
-      amount        : amount,
-      currency      : currency,
-      status        : "-1",
-      TeacherId     : TeacherId,
-      AdminId       : "1",
-      reason        : reason,
+      amount: amount,
+      currency: currency,
+      status: "-1",
+      TeacherId: TeacherId,
+      AdminId: "1",
+      reason: reason,
     },
     {
       returning: true,
@@ -800,8 +803,8 @@ const createExchangeRequestsTeacher = async (req, res) => {
     status: 201,
     data: newExchange,
     msg: {
-      arabic  : "تم إنشاء طلب صرف جديده بنجاح",
-      english : "successful create new Exchange Requests Teacher",
+      arabic: "تم إنشاء طلب صرف جديده بنجاح",
+      english: "successful create new Exchange Requests Teacher",
     },
   });
 };
@@ -1030,10 +1033,10 @@ const searchTeacherFilterSide = async (req, res) => {
   let whereTeacher = { isVerified: 1, isRegistered: true };
   const whereInclude = [
     { model: F2FSessionTeacher, },
-    { model: F2FSessionStd,     },
-    { model: RemoteSession,     },
-    { model: TeacherLimits,     include: [LimeType] },
-    { model: TeacherTypes,      include: [TrainingCategoryType] },
+    { model: F2FSessionStd, },
+    { model: RemoteSession, },
+    { model: TeacherLimits, include: [LimeType] },
+    { model: TeacherTypes, include: [TrainingCategoryType] },
     //{ modal: Tests ,            include: [Level]},
   ];
   if (videoLink) {
@@ -1124,11 +1127,11 @@ const searchTeacherFilterTop = async (req, res) => {
   }
 
   const whereInclude = [
-    { model: F2FSessionTeacher,},
+    { model: F2FSessionTeacher, },
     { model: F2FSessionStd, },
-    { model: RemoteSession,},
-    { model: TeacherLimits,     include: [LimeType] },
-    { model: TeacherTypes,      include: [TrainingCategoryType] },
+    { model: RemoteSession, },
+    { model: TeacherLimits, include: [LimeType] },
+    { model: TeacherTypes, include: [TrainingCategoryType] },
   ];
 
   if (LevelId !== "all") {
@@ -1201,7 +1204,7 @@ const searchTeacherFilterTop = async (req, res) => {
 const resetPassword = async (req, res) => {
   const { TeacherId } = req.params;
   const { oldPassword, newPassword } = req.body;
-  
+
   const teacher = await Teacher.findOne({
     where: { id: TeacherId },
     include: { all: true },
@@ -1373,7 +1376,7 @@ const acceptLesson = async (req, res) => {
 
   await session.update({ teacherAccept: true });
 
-  
+
   res.send({
     status: 201,
     msg: {
@@ -1412,22 +1415,22 @@ const endLesson = async (req, res) => {
       Teacher.findByPk(session.TeacherId),
     ]);
 
-   
+
     const message = lang === "ar" ? "انتهى الدرس الآن." : "The lesson is now finished.";
 
 
     // إرسال الإيميلات بالتوازي
     await Promise.all([
       sendLessonNotification({
-      type: "lesson_end",
-      student,
-      teacher,
-      language: lang,
-      lessonDetails: {
-        date: session.date,
-        time: session.time ,
-      },
-    }),
+        type: "lesson_end",
+        student,
+        teacher,
+        language: lang,
+        lessonDetails: {
+          date: session.date,
+          time: session.time,
+        },
+      }),
       sendLessonEmail(student.email, lang, message, "end"),
       sendLessonEmail(teacher.email, lang, message, "end"),
     ]);
@@ -1458,42 +1461,53 @@ const requestCheckout = async (req, res) => {
 
     const teacher = await Teacher.findOne({ where: { id: TeacherId } });
     if (!teacher) {
-      throw serverErrs.BAD_REQUEST({
+      return res.status(400).send({
         arabic: "المدرب غير موجود",
         english: "Trainer not found",
       });
     }
 
-    const availableAmount = teacher.totalAmount - teacher.dues;
+    const totalAmount = Number(teacher.totalAmount);
+    const dues = Number(teacher.dues);
 
-    // تحقق من صحة المبلغ
-    if (!amount || amount <= 0 || amount > availableAmount) {
-      throw serverErrs.BAD_REQUEST({
+    if (isNaN(totalAmount) || isNaN(dues)) {
+      return res.status(400).send({
+        arabic: "خطأ في البيانات المالية للمدرب",
+        english: "Invalid financial data for the trainer",
+      });
+    }
+
+    const availableAmount = totalAmount - dues;
+
+    if (!Number(amount) || Number(amount) <= 0 || Number(amount) > availableAmount) {
+      return res.status(400).send({
         arabic: "قيمة المبلغ غير صالحة",
         english: "Invalid amount value",
       });
     }
 
-    // تحقق من طريقة الدفع
     if (!method || !["phone", "bank"].includes(method)) {
-      throw serverErrs.BAD_REQUEST({
-        arabic: "طريقة الدفع غير صالحة",
-        english: "Invalid payment method",
+      return res.status(400).send({
+        msg: {
+          arabic: "طريقة الدفع غير صالحة",
+          english: "Invalid payment method",
+        },
       });
     }
 
-    // تحقق من البيانات المطلوبة بناءً على الطريقة
     let checkoutData = {
       TeacherId,
-      value: amount,
+      value: Number(amount),
       method,
     };
 
     if (method === "phone") {
       if (!phoneNumber) {
-        throw serverErrs.BAD_REQUEST({
-          arabic: "رقم الهاتف مطلوب",
-          english: "Phone number is required",
+        return res.status(400).send({
+          msg: {
+            arabic: "رقم الهاتف مطلوب",
+            english: "Phone number is required",
+          },
         });
       }
       checkoutData.phoneNumber = phoneNumber;
@@ -1502,9 +1516,11 @@ const requestCheckout = async (req, res) => {
     if (method === "bank") {
       const { bankName, accountNumber, iban } = bankInfo || {};
       if (!bankName || !accountNumber || !iban) {
-        throw serverErrs.BAD_REQUEST({
-          arabic: "بيانات الحساب البنكي مطلوبة",
-          english: "Bank account info is required",
+        return res.status(400).send({
+          msg: {
+            arabic: "بيانات الحساب البنكي مطلوبة",
+            english: "Bank account info is required",
+          },
         });
       }
       checkoutData.bankName = bankName;
@@ -1512,15 +1528,13 @@ const requestCheckout = async (req, res) => {
       checkoutData.iban = iban;
     }
 
-    // إنشاء طلب السحب
     const checkoutRequest = await CheckoutRequest.create(checkoutData);
 
-    // تحديث الرصيد المستحق
     await teacher.update({
-      dues: teacher.dues + amount,
+      dues: dues + Number(amount),
     });
 
-    res.status(201).send({
+    return res.status(201).send({
       status: 201,
       data: checkoutRequest,
       msg: {
@@ -1531,7 +1545,7 @@ const requestCheckout = async (req, res) => {
 
   } catch (error) {
     console.error(error);
-    res.status(500).send({
+    return res.status(500).send({
       status: 500,
       msg: {
         arabic: "حدث خطأ أثناء معالجة الطلب",
@@ -1540,6 +1554,8 @@ const requestCheckout = async (req, res) => {
     });
   }
 };
+
+
 
 const getProfitRatio = async (req, res) => {
   const admin = await Admin.findOne();
@@ -1573,7 +1589,7 @@ const settingNotification = async (req, res) => {
     isnotify,
   });
 
-  
+
   await teacher.save();
 
   res.send({
@@ -1627,7 +1643,7 @@ const getNumbers = async (req, res) => {
 
   res.send({
     status: 201,
-    data: { numLevels, numDays, numLimits, numSubject , numTypes, numCurriculum  },
+    data: { numLevels, numDays, numLimits, numSubject, numTypes, numCurriculum },
     msg: {
       arabic: "تم ارجاع جميع صفوف المدربين",
       english: "successful get all numbers",
@@ -1678,7 +1694,7 @@ const updateTeacherCertificates = async (req, res) => {
     subject,
     from,
     to,
-    
+
   });
 
   res.send({
@@ -1700,7 +1716,7 @@ const deleteTeacherCertificates = async (req, res) => {
       arabic: "الشهاده غير موجود",
       english: "Invalid Cretificates ID! ",
     });
-  
+
   await objCretificates.destroy();
   res.send({
     status: 201,
@@ -1757,21 +1773,21 @@ const getLectureByTeacherId = async (req, res) => {
 const getSingleLecture = async (req, res) => {
   const { lectureId } = req.params;
   const objLecture = await TeacherLecture.findOne({
-    where: { id : lectureId },
-    include : [ { model: Teacher} ],
+    where: { id: lectureId },
+    include: [{ model: Teacher }],
   });
-const [subject, classData, curriculums] = await Promise.all([
-      Subject.findOne({ where: { id: objLecture.subject } }),
-      Class.findOne({ where: { id: objLecture.class } }),
-      Curriculum.findOne({ where: { id: objLecture.curriculums } }),
-    ]);
+  const [subject, classData, curriculums] = await Promise.all([
+    Subject.findOne({ where: { id: objLecture.subject } }),
+    Class.findOne({ where: { id: objLecture.class } }),
+    Curriculum.findOne({ where: { id: objLecture.curriculums } }),
+  ]);
 
-    const lectureData = {
-      ...objLecture.dataValues,
-      subject: subject ? subject.dataValues : null,
-      class: classData ? classData.dataValues : null,
-      curriculums: curriculums ? curriculums.dataValues : null
-    };
+  const lectureData = {
+    ...objLecture.dataValues,
+    subject: subject ? subject.dataValues : null,
+    class: classData ? classData.dataValues : null,
+    curriculums: curriculums ? curriculums.dataValues : null
+  };
   res.send({
     status: 201,
     data: lectureData,
@@ -1821,14 +1837,14 @@ const createLecture = async (req, res) => {
 const deleteLecture = async (req, res) => {
   const { lectureId } = req.params;
   const objLecture = await TeacherLecture.findOne({
-    where: { id : lectureId },
+    where: { id: lectureId },
   });
   if (!objLecture)
     throw serverErrs.BAD_REQUEST({
       arabic: "محاضره غير موجود",
       english: "Invalid Lecture ID! ",
     });
-  
+
   await objLecture.destroy();
   res.send({
     status: 201,
@@ -1881,7 +1897,7 @@ const getLessonByTeacherId = async (req, res) => {
       TeacherId: teacherId,
     },
     include: [
-      { model: TeacherLecture}
+      { model: TeacherLecture }
     ]
   });
 
@@ -1897,10 +1913,10 @@ const getLessonByTeacherId = async (req, res) => {
 
 const createLesson = async (req, res) => {
 
-  const { TeacherId ,titleAR, titleEN, LectureId , videoLink } = req.body;
+  const { TeacherId, titleAR, titleEN, LectureId, videoLink } = req.body;
   const objTeacher = await Teacher.findOne({
     where: {
-      id : TeacherId,
+      id: TeacherId,
     },
   });
 
@@ -1909,24 +1925,24 @@ const createLesson = async (req, res) => {
       arabic: "المدرب غير مسجل سابقا",
       english: "Teacher is not found",
     });
-  
+
   const objLecture = await TeacherLecture.findOne({
-      where: {
-        id : LectureId,
-      },
+    where: {
+      id: LectureId,
+    },
   });
-  
-    if (!objLecture)
-      throw serverErrs.BAD_REQUEST({
-        arabic: "المحاضره غير مسجل سابقا",
-        english: "Lectrue is not found",
-      });
+
+  if (!objLecture)
+    throw serverErrs.BAD_REQUEST({
+      arabic: "المحاضره غير مسجل سابقا",
+      english: "Lectrue is not found",
+    });
   const newLesson = await TeacherLesson.create({
-    TeacherId    : TeacherId,
-    TeacherLectureId    : LectureId,
-    titleEN      : titleEN,
-    titleAR      : titleAR,
-    videoLink    : videoLink,
+    TeacherId: TeacherId,
+    TeacherLectureId: LectureId,
+    titleEN: titleEN,
+    titleAR: titleAR,
+    videoLink: videoLink,
   });
 
   await newLesson.save();
@@ -1944,9 +1960,9 @@ const getSingleLesson = async (req, res) => {
   const { lessonId } = req.params;
 
   const objLesson = await TeacherLesson.findOne({
-    where   : { id : lessonId },
-    include : [
-      { model: TeacherLecture}
+    where: { id: lessonId },
+    include: [
+      { model: TeacherLecture }
     ]
   });
 
@@ -1973,13 +1989,13 @@ const updateLesson = async (req, res) => {
     });
   };
 
-  const { TeacherId , titleAR   , titleEN   , videoLink  } = req.body;
+  const { TeacherId, titleAR, titleEN, videoLink } = req.body;
 
   await objLesson.update({
-    TeacherId     : TeacherId,
-    titleAR       : titleAR,
-    titleEN       : titleEN,
-    videoLink     : videoLink,
+    TeacherId: TeacherId,
+    titleAR: titleAR,
+    titleEN: titleEN,
+    videoLink: videoLink,
   });
 
 
@@ -1989,7 +2005,7 @@ const updateLesson = async (req, res) => {
 
   res.send({
     status: 201,
-    data  : objLessonTwo,
+    data: objLessonTwo,
     msg: {
       arabic: "تم تعديل بيانات المحاضره بنجاح",
       english: "successful update of Lecture",
@@ -2000,14 +2016,14 @@ const updateLesson = async (req, res) => {
 const deleteLesson = async (req, res) => {
   const { lessonId } = req.params;
   const objLesson = await TeacherLesson.findOne({
-    where: { id : lessonId },
+    where: { id: lessonId },
   });
   if (!objLesson)
     throw serverErrs.BAD_REQUEST({
       arabic: "الدرس غير موجود",
       english: "Invalid Lesson ID! ",
     });
-  
+
   await objLesson.destroy();
   res.send({
     status: 201,
@@ -2028,7 +2044,7 @@ const updateLogout = async (req, res) => {
   });
 
   await teacher.update({
-    isOnline : false,
+    isOnline: false,
   });
 
   await teacher.save();
@@ -2036,7 +2052,7 @@ const updateLogout = async (req, res) => {
   res.send({
     status: 201,
     data: { teacher },
-    msg : {
+    msg: {
       arabic: "تم تعديل معلومات بنجاح",
       english: "successful edit Information! ",
     },
@@ -2051,11 +2067,11 @@ const getPackageByTeacherId = async (req, res) => {
       TeacherId: teacherId,
     },
     include: [
-      { model: Teacher  },
+      { model: Teacher },
       { model: TrainingCategoryType },
       { model: LimeType },
-      { model: SubjectCategory  },
-      { model: Level    },
+      { model: SubjectCategory },
+      { model: Level },
     ],
   });
 
@@ -2133,7 +2149,7 @@ const getSinglePackage = async (req, res) => {
 };
 
 const createPackage = async (req, res) => {
- const data = req.body;
+  const data = req.body;
 
   if (req.files && req.files.length > 0) {
     req.files.forEach(file => {
@@ -2160,14 +2176,14 @@ const createPackage = async (req, res) => {
 const deletePackage = async (req, res) => {
   const { packageId } = req.params;
   const objPackage = await Package.findOne({
-    where: { id : packageId },
+    where: { id: packageId },
   });
   if (!objPackage)
     throw serverErrs.BAD_REQUEST({
       arabic: "الباقة غير موجود",
       english: "Invalid Package ID! ",
     });
-  
+
   await objPackage.destroy();
   res.send({
     status: 201,
@@ -2183,8 +2199,8 @@ const updatePackage = async (req, res) => {
     const { packageId } = req.params;
     const data = req.body;
     const package = await Package.findOne({
-    where: { id: packageId },
-  });;
+      where: { id: packageId },
+    });;
     if (!package) {
       return res.status(404).send({
         status: 404,
@@ -2229,14 +2245,14 @@ const updatePackage = async (req, res) => {
 const getPackageAccept = async (req, res) => {
   const arrPackage = await Package.findAll({
     where: {
-      status   : "2"
+      status: "2"
     },
     include: [
-      { model: Teacher  },
+      { model: Teacher },
       { model: TrainingCategoryType },
       { model: LimeType },
-      { model: SubjectCategory  },
-      { model: Level    },
+      { model: SubjectCategory },
+      { model: Level },
     ],
   });
 
@@ -2255,14 +2271,14 @@ const getPackageAcceptByTeacherId = async (req, res) => {
   const arrPackage = await Package.findAll({
     where: {
       TeacherId: teacherId,
-      status   : "2"
+      status: "2"
     },
     include: [
-      { model: Teacher  },
+      { model: Teacher },
       { model: TrainingCategoryType },
       { model: LimeType },
-      { model: SubjectCategory  },
-      { model: Level    },
+      { model: SubjectCategory },
+      { model: Level },
     ],
   });
 
@@ -2283,16 +2299,16 @@ const getAllTeachers = async (req, res) => {
       isRegistered: true,
     },
     include: [
-      { model: LangTeachStd,      include: [Language] },
+      { model: LangTeachStd, include: [Language] },
       { model: Experience },
       { model: EducationDegree },
       { model: Certificates },
-      { model: TeacherLevel,      include: [Level] },
+      { model: TeacherLevel, include: [Level] },
       { model: CurriculumTeacher, include: [Curriculum] },
-      { model: TeacherSubject,    include: [Subject] },
-      { model: TeacherLimits,     include: [LimeType] },
-      { model: TeacherTypes,      include: [TrainingCategoryType] },
-      { model: Package,           },
+      { model: TeacherSubject, include: [Subject] },
+      { model: TeacherLimits, include: [LimeType] },
+      { model: TeacherTypes, include: [TrainingCategoryType] },
+      { model: Package, },
       { model: Rate },
     ],
   });
@@ -2314,24 +2330,24 @@ const getAllTeachersRating = async (req, res) => {
       isRegistered: true,
     },
     include: [
-      { model: LangTeachStd,      include: [Language] },
+      { model: LangTeachStd, include: [Language] },
       { model: Experience },
       { model: EducationDegree },
       { model: Certificates },
-      { model: TeacherLevel,      include: [Level] },
+      { model: TeacherLevel, include: [Level] },
       { model: CurriculumTeacher, include: [Curriculum] },
-      { model: TeacherSubject,    include: [Subject] },
-      { model: TeacherLimits,     include: [LimeType] },
-      { model: TeacherTypes,      include: [TrainingCategoryType] },
-      { model: Package,           },
+      { model: TeacherSubject, include: [Subject] },
+      { model: TeacherLimits, include: [LimeType] },
+      { model: TeacherTypes, include: [TrainingCategoryType] },
+      { model: Package, },
       { model: Rate },
     ],
   });
 
   var newArrTeachers = [];
-  var j=0;
-  for( var i=0; i < teachers.length ; i++){
-    if(teachers[i].Rates.length > 0 ){
+  var j = 0;
+  for (var i = 0; i < teachers.length; i++) {
+    if (teachers[i].Rates.length > 0) {
       newArrTeachers[j] = teachers[i];
       j++;
     }
@@ -2353,14 +2369,14 @@ const getQuestionByTeacherId = async (req, res) => {
     where: {
       TeacherId: teacherId,
     },
-    include : [
+    include: [
       { model: TeacherLecture, },
     ]
   });
 
   res.send({
     status: 201,
-    data  : arrQuestions,
+    data: arrQuestions,
     msg: {
       arabic: "تم ارجاع جميع المحاضرات المدرب بنجاح",
       english: "successful get all lectures teacher",
@@ -2371,8 +2387,8 @@ const getQuestionByTeacherId = async (req, res) => {
 const getSingleQuestion = async (req, res) => {
   const { questionId } = req.params;
   const objQuestion = await TeacherQuestion.findOne({
-    where: { id : questionId },
-    include : [
+    where: { id: questionId },
+    include: [
       { model: TeacherLecture, },
     ]
   });
@@ -2388,10 +2404,10 @@ const getSingleQuestion = async (req, res) => {
 };
 
 const createQuestion = async (req, res) => {
-  const { TeacherId ,titleAR, titleEN, descriptionAr, descriptionEn , LectureId } = req.body;
+  const { TeacherId, titleAR, titleEN, descriptionAr, descriptionEn, LectureId } = req.body;
   const objTeacher = await Teacher.findOne({
     where: {
-      id : TeacherId,
+      id: TeacherId,
     },
   });
 
@@ -2401,26 +2417,26 @@ const createQuestion = async (req, res) => {
       english: "Teacher is not found",
     });
 
-  
-    const objLecture = await TeacherLecture.findOne({
-      where: {
-        id : LectureId,
-      },
+
+  const objLecture = await TeacherLecture.findOne({
+    where: {
+      id: LectureId,
+    },
+  });
+
+  if (!objLecture)
+    throw serverErrs.BAD_REQUEST({
+      arabic: "المحاضره غير مسجل سابقا",
+      english: "Lecture is not found",
     });
-  
-    if (!objLecture)
-      throw serverErrs.BAD_REQUEST({
-        arabic: "المحاضره غير مسجل سابقا",
-        english: "Lecture is not found",
-      });
-  
+
   const newQuestion = await TeacherQuestion.create({
-    TeacherId        : TeacherId,
-    TeacherLectureId : LectureId,
-    titleAR          : titleAR,
-    titleEN       : titleEN,
-    descriptionAr : descriptionAr,
-    descriptionEn : descriptionEn,
+    TeacherId: TeacherId,
+    TeacherLectureId: LectureId,
+    titleAR: titleAR,
+    titleEN: titleEN,
+    descriptionAr: descriptionAr,
+    descriptionEn: descriptionEn,
   });
 
   await newQuestion.save();
@@ -2449,21 +2465,21 @@ const updateQuestion = async (req, res) => {
   };
 
   const {
-    TeacherId     : TeacherId,
-    TeacherLectureId : TeacherLectureId,
-    titleAR       : titleAR,
-    titleEN       : titleEN,
-    descriptionAr : descriptionAr,
-    descriptionEn : descriptionEn,
+    TeacherId: TeacherId,
+    TeacherLectureId: TeacherLectureId,
+    titleAR: titleAR,
+    titleEN: titleEN,
+    descriptionAr: descriptionAr,
+    descriptionEn: descriptionEn,
   } = req.body;
 
   await objQuestion.update({
-    TeacherId         : TeacherId,
-    TeacherLectureId  : TeacherLectureId,
-    titleAR           : titleAR,
-    titleEN           : titleEN,
-    descriptionAr : descriptionAr,
-    descriptionEn : descriptionEn,
+    TeacherId: TeacherId,
+    TeacherLectureId: TeacherLectureId,
+    titleAR: titleAR,
+    titleEN: titleEN,
+    descriptionAr: descriptionAr,
+    descriptionEn: descriptionEn,
   });
 
 
@@ -2473,7 +2489,7 @@ const updateQuestion = async (req, res) => {
 
   res.send({
     status: 201,
-    data  : objQuestionTwo,
+    data: objQuestionTwo,
     msg: {
       arabic: "تم تعديل بيانات السؤال بنجاح",
       english: "successful update of Question",
@@ -2484,14 +2500,14 @@ const updateQuestion = async (req, res) => {
 const deleteQuestion = async (req, res) => {
   const { questionId } = req.params;
   const objQuestion = await TeacherQuestion.findOne({
-    where: { id : questionId },
+    where: { id: questionId },
   });
   if (!objQuestion)
     throw serverErrs.BAD_REQUEST({
       arabic: "السؤال غير موجود",
       english: "Invalid Question ID! ",
     });
-  
+
   await objQuestion.destroy();
   res.send({
     status: 201,
@@ -2508,14 +2524,14 @@ const getQuestionChooseByTeacherId = async (req, res) => {
     where: {
       TeacherId: teacherId,
     },
-    include : [
+    include: [
       { model: TeacherQuestion, },
     ]
   });
 
   res.send({
     status: 201,
-    data  : arrQuestions,
+    data: arrQuestions,
     msg: {
       arabic: "تم ارجاع جميع اجابات الاسئله الخاصه بهذا المدرب بنجاح",
       english: "successful get all answers of choose questions fot this teacher",
@@ -2526,8 +2542,8 @@ const getQuestionChooseByTeacherId = async (req, res) => {
 const getSingleQuestionChoose = async (req, res) => {
   const { questionChooseId } = req.params;
   const objQuestionChoose = await TeacherQuestionChoose.findOne({
-    where: { id : questionChooseId },
-    include : [
+    where: { id: questionChooseId },
+    include: [
       { model: TeacherQuestion, },
     ]
   });
@@ -2543,11 +2559,11 @@ const getSingleQuestionChoose = async (req, res) => {
 };
 
 const createQuestionChoose = async (req, res) => {
-  
-  const { TeacherId ,titleAR, titleEN , TeacherQuestionId , isCorrect } = req.body;
+
+  const { TeacherId, titleAR, titleEN, TeacherQuestionId, isCorrect } = req.body;
   const objTeacher = await Teacher.findOne({
     where: {
-      id : TeacherId,
+      id: TeacherId,
     },
   });
 
@@ -2557,25 +2573,25 @@ const createQuestionChoose = async (req, res) => {
       english: "Teacher is not found",
     });
 
-  
-    const objQuestion = await TeacherQuestion.findOne({
-      where: {
-        id : TeacherQuestionId,
-      },
+
+  const objQuestion = await TeacherQuestion.findOne({
+    where: {
+      id: TeacherQuestionId,
+    },
+  });
+
+  if (!objQuestion)
+    throw serverErrs.BAD_REQUEST({
+      arabic: "السوال غير مسجل سابقا",
+      english: "Question is not found",
     });
-  
-    if (!objQuestion)
-      throw serverErrs.BAD_REQUEST({
-        arabic: "السوال غير مسجل سابقا",
-        english: "Question is not found",
-      });
-  
+
   const newQuestionChoose = await TeacherQuestionChoose.create({
-    TeacherId         : TeacherId,
-    TeacherQuestionId : TeacherQuestionId,
-    titleAR           : titleAR,
-    titleEN           : titleEN,
-    isCorrectAnswer   : isCorrect
+    TeacherId: TeacherId,
+    TeacherQuestionId: TeacherQuestionId,
+    titleAR: titleAR,
+    titleEN: titleEN,
+    isCorrectAnswer: isCorrect
   });
 
   await newQuestionChoose.save();
@@ -2608,19 +2624,19 @@ const updateQuestionChoose = async (req, res) => {
   };
 
   const {
-    TeacherId         : TeacherId,
-    TeacherQuestionId : TeacherQuestionId,
-    titleAR           : titleAR,
-    titleEN           : titleEN,
-    isCorrectAnswer   : isCorrectAnswer,
+    TeacherId: TeacherId,
+    TeacherQuestionId: TeacherQuestionId,
+    titleAR: titleAR,
+    titleEN: titleEN,
+    isCorrectAnswer: isCorrectAnswer,
   } = req.body;
 
   await objQuestionChoose.update({
-    TeacherId         : TeacherId,
-    TeacherQuestionId : TeacherQuestionId,
-    titleAR           : titleAR,
-    titleEN           : titleEN,
-    isCorrectAnswer   : isCorrectAnswer
+    TeacherId: TeacherId,
+    TeacherQuestionId: TeacherQuestionId,
+    titleAR: titleAR,
+    titleEN: titleEN,
+    isCorrectAnswer: isCorrectAnswer
   });
 
 
@@ -2630,7 +2646,7 @@ const updateQuestionChoose = async (req, res) => {
 
   res.send({
     status: 201,
-    data  : objQuestionChooseTwo,
+    data: objQuestionChooseTwo,
     msg: {
       arabic: "تم تعديل بيانات الاجابه بنجاح",
       english: "successful update of Question Choose",
@@ -2641,14 +2657,14 @@ const updateQuestionChoose = async (req, res) => {
 const deleteQuestionChoose = async (req, res) => {
   const { questionChooseId } = req.params;
   const objQuestionChoose = await TeacherQuestionChoose.findOne({
-    where: { id : questionChooseId },
+    where: { id: questionChooseId },
   });
   if (!objQuestionChoose)
     throw serverErrs.BAD_REQUEST({
       arabic: "الاجابة غير موجود",
       english: "Invalid answer ID! ",
     });
-  
+
   await objQuestionChoose.destroy();
   res.send({
     status: 201,
@@ -2665,14 +2681,14 @@ const getTestsByTeacherId = async (req, res) => {
     where: {
       TeacherId: teacherId,
     },
-    include : [
+    include: [
       { model: Level, },
     ]
   });
 
   res.send({
     status: 201,
-    data  : arrTests,
+    data: arrTests,
     msg: {
       arabic: "تم ارجاع جميع الاختبارات الخاصه بهذا المدرب بنجاح",
       english: "successful get all tests fot this teacher",
@@ -2680,26 +2696,26 @@ const getTestsByTeacherId = async (req, res) => {
   });
 };
 
-const getSingleTest = async (req, res) => {  
+const getSingleTest = async (req, res) => {
   const { testId } = req.params;
   const objTest = await Tests.findOne({
-    where: { id : testId },
-    include : [
-       { model: Teacher, },
-       { model: Level, },
-     ]
+    where: { id: testId },
+    include: [
+      { model: Teacher, },
+      { model: Level, },
+    ]
   });
-const [subject, classData,curriculums] = await Promise.all([
-      Subject.findOne({ where: { id: objTest.subject } }),
-      Class.findOne({ where: { id: objTest.class } }),
-      Curriculum.findOne({ where: { id: objTest.curriculums } }),
+  const [subject, classData, curriculums] = await Promise.all([
+    Subject.findOne({ where: { id: objTest.subject } }),
+    Class.findOne({ where: { id: objTest.class } }),
+    Curriculum.findOne({ where: { id: objTest.curriculums } }),
   ]);
 
   const examData = {
-      ...objTest.dataValues,
-      subject: subject ? subject.dataValues : null,
-      class: classData ? classData.dataValues : null,
-      curriculums: curriculums ? curriculums.dataValues : null,
+    ...objTest.dataValues,
+    subject: subject ? subject.dataValues : null,
+    class: classData ? classData.dataValues : null,
+    curriculums: curriculums ? curriculums.dataValues : null,
   };
 
   res.send({
@@ -2719,13 +2735,13 @@ const createTest = async (req, res) => {
     // التأكد من أن هناك ملفات وتحميلها
     if (req.files && req.files.length > 0) {
       req.files.forEach(file => {
-          if (file.fieldname === "docs") {
-              data.docs = file.filename; // أو URL حسب طريقة التخزين
-          } else if (file.fieldname === "image") {
-              data.image = file.filename;
-          }
+        if (file.fieldname === "docs") {
+          data.docs = file.filename; // أو URL حسب طريقة التخزين
+        } else if (file.fieldname === "image") {
+          data.image = file.filename;
+        }
       });
-  }
+    }
 
 
     const table = await Tests.create(data);
@@ -2751,10 +2767,10 @@ const createTest = async (req, res) => {
 };
 
 const updateTest = async (req, res) => {
-    try {
+  try {
     const { testId } = req.params;
     const data = req.body;
-    const exam = await Tests.findOne({ where: { id: testId }});
+    const exam = await Tests.findOne({ where: { id: testId } });
     if (!exam) {
       return res.status(404).send({
         status: 404,
@@ -2766,14 +2782,14 @@ const updateTest = async (req, res) => {
     }
     if (req.files && req.files.length > 0) {
       req.files.forEach(file => {
-          if (file.fieldname === "docs") {
-              data.docs = file.filename; // أو URL حسب طريقة التخزين
-          } else if (file.fieldname === "image") {
-              data.image = file.filename;
-          }
+        if (file.fieldname === "docs") {
+          data.docs = file.filename; // أو URL حسب طريقة التخزين
+        } else if (file.fieldname === "image") {
+          data.image = file.filename;
+        }
       });
-  }
-  
+    }
+
     await exam.update(data);
     res.send({
       status: 200,
@@ -2785,7 +2801,7 @@ const updateTest = async (req, res) => {
   } catch (error) {
     res.status(500).send({
       status: 500,
-      error:error.message,
+      error: error.message,
       msg: {
         arabic: "حدث خطأ في الخادم",
         english: "Server error"
@@ -2794,17 +2810,17 @@ const updateTest = async (req, res) => {
   }
 };
 
-const deleteTest= async (req, res) => {
+const deleteTest = async (req, res) => {
   const { testId } = req.params;
   const objTest = await Tests.findOne({
-    where: { id : testId },
+    where: { id: testId },
   });
   if (!objTest)
     throw serverErrs.BAD_REQUEST({
       arabic: "الاختبار غير موجود",
       english: "Invalid test ID! ",
     });
-  
+
   await objTest.destroy();
   res.send({
     status: 201,
@@ -2833,28 +2849,28 @@ const getDiscountByTeacherId = async (req, res) => {
   });
 };
 
-const getSingleDiscount= async (req, res) => {
+const getSingleDiscount = async (req, res) => {
   const { discountId } = req.params;
   const objDiscount = await Discounts.findOne({
-    where: { id : discountId },
+    where: { id: discountId },
   });
 
-    const classId = await Class.findOne({
-      where: {
-        id: objDiscount.class,
-      },
-    });
-    const curriculums = await Curriculum.findOne({
-      where: {
-        id: objDiscount.curriculums,
-      },
-    });
-    // إرجاع المورد مع البيانات المرتبطة به
-    const discountWithData = {
-      ...objDiscount.dataValues,
-      class: classId ? classId.dataValues : null,
-      curriculums: curriculums ? curriculums.dataValues : null,
-    };
+  const classId = await Class.findOne({
+    where: {
+      id: objDiscount.class,
+    },
+  });
+  const curriculums = await Curriculum.findOne({
+    where: {
+      id: objDiscount.curriculums,
+    },
+  });
+  // إرجاع المورد مع البيانات المرتبطة به
+  const discountWithData = {
+    ...objDiscount.dataValues,
+    class: classId ? classId.dataValues : null,
+    curriculums: curriculums ? curriculums.dataValues : null,
+  };
   res.send({
     status: 201,
     data: discountWithData,
@@ -2866,7 +2882,7 @@ const getSingleDiscount= async (req, res) => {
 };
 
 const createDiscount = async (req, res) => {
-    try {
+  try {
     const data = req.body;
     if (req.files && req.files.length > 0) {
       req.files.forEach(file => {
@@ -2901,14 +2917,14 @@ const createDiscount = async (req, res) => {
 const deleteDiscount = async (req, res) => {
   const { discountId } = req.params;
   const objDiscount = await Discounts.findOne({
-    where: { id : discountId },
+    where: { id: discountId },
   });
   if (!objDiscount)
     throw serverErrs.BAD_REQUEST({
       arabic: "الخصومه الخاصه غير موجود",
       english: "Invalid Discount ID! ",
     });
-  
+
   await objDiscount.destroy();
   res.send({
     status: 201,
@@ -2920,8 +2936,8 @@ const deleteDiscount = async (req, res) => {
 };
 
 const updateDiscount = async (req, res) => {
-  
-   try {
+
+  try {
     const { discountId } = req.params;
     const discount = await Discounts.findByPk(discountId);
     if (!discount) {
@@ -2954,7 +2970,7 @@ const updateDiscount = async (req, res) => {
         english: "Discount updated successfully",
       },
     });
-    
+
   } catch (error) {
     console.error(error);
     res.status(500).send({
@@ -2968,27 +2984,27 @@ const updateDiscount = async (req, res) => {
   }
 };
 
-const getRefundTeacherById = async (req, res) =>{
+const getRefundTeacherById = async (req, res) => {
   const { TeacherId } = req.params;
   const objTeacher = await Teacher.findOne({
-    where  : { id: TeacherId }
+    where: { id: TeacherId }
   });
   if (!objTeacher)
     throw serverErrs.BAD_REQUEST({
       arabic: "المدرب غير موجودة",
       english: "Invalid Teacher! ",
     });
-  
+
   const dataRefund = await TeacherRefund.findAll({
-      where: {
-        TeacherId: TeacherId,
-      },
+    where: {
+      TeacherId: TeacherId,
+    },
   });
 
 
   res.send({
     status: 201,
-    data  : dataRefund,
+    data: dataRefund,
     msg: {
       arabic: "تم عمليه الاسترجاع بنجاح",
       english: "successful add Refund success",
@@ -3001,22 +3017,22 @@ const getSessionsByTeacher = async (req, res) => {
     const { teacherId } = req.params;
 
     const sessions = await Session.findAll({
-      where: { TeacherId: teacherId ,isPaid: true},
-      attributes: ["id", "title", "date", "period", "type","isPaid","price","currency"],
+      where: { TeacherId: teacherId, isPaid: true },
+      attributes: ["id", "title", "date", "period", "type", "isPaid", "price", "currency"],
       include: [
         {
           model: Student,
-          attributes: ["id", "phoneNumber", "name","email"], 
+          attributes: ["id", "phoneNumber", "name", "email"],
         },
         {
           model: Teacher,
-          attributes: ["id", "firstName", "lastName","email","phone"], 
-          include:[{
+          attributes: ["id", "firstName", "lastName", "email", "phone"],
+          include: [{
             model: TeacherSubject,
-            include: [{ 
+            include: [{
               model: Subject,
-              include:[{
-                model: SubjectCategory 
+              include: [{
+                model: SubjectCategory
               }]
             }]
           }]
@@ -3054,26 +3070,26 @@ const getSessionsByTeacher = async (req, res) => {
   }
 };
 
-const availbleTeacher =async (req, res) => {
+const availbleTeacher = async (req, res) => {
   try {
     const teacherData = await TeacherDay.findAll({
-      where:{
-        TeacherId:req.params.id
+      where: {
+        TeacherId: req.params.id
       }
     });
 
     if (!teacherData) return res.status(404).json({ message: 'Teacher not found' });
-  
+
 
     const data = await Promise.all(
       teacherData.map(async (teacher) => {
         const day = await Days.findOne({
           where: {
-            id: teacher.DayId, 
+            id: teacher.DayId,
           },
         });
         return {
-          ...teacher.dataValues, 
+          ...teacher.dataValues,
           day: day ? day.dataValues : null
         };
       })
@@ -3113,9 +3129,9 @@ const addEvaluations = async (req, res) => {
       const mailOptions = generateCertificateHTML({
         language,
         studentName: StudentName,
-        date:certificateDate,
-        certificateTitle:trainingStage,
-        email:student.email
+        date: certificateDate,
+        certificateTitle: trainingStage,
+        email: student.email
       });
 
       await sendEmail(mailOptions);
@@ -3127,7 +3143,7 @@ const addEvaluations = async (req, res) => {
       userType: "student",
       title: language === "ar" ? "تم إصدار شهادة جديدة" : "New Certificate Issued",
       messageAr: `تم إصدار شهادة جديدة بتاريخ ${new Date(certificateDate).toLocaleDateString("ar-EG")}`,
-      messageEn : `A new certificate was issued on ${new Date(certificateDate).toLocaleDateString("en-US")}`,
+      messageEn: `A new certificate was issued on ${new Date(certificateDate).toLocaleDateString("en-US")}`,
       type: "certificate",
     });
 
@@ -3154,183 +3170,183 @@ const getTeacherStats = async (req, res) => {
     const currentYear = new Date().getFullYear();
 
     // خطوة 1: اجلب البيانات من قاعدة البيانات
-const sessions = await Session.findAll({
-  where: {
-    isPaid: true,
-    TeacherId: teacherId,
-    createdAt: {
-      [Op.between]: [
-        new Date(`${currentYear}-01-01T00:00:00Z`),
-        new Date(`${currentYear}-12-31T23:59:59Z`)
-      ]
-    }
-  },
-  attributes: [
-    [fn("MONTH", col("createdAt")), "month"],
-    [fn("COUNT", col("id")), "total"]
-  ],
-  group: [literal("month")],
-  order: [[literal("month"), "ASC"]]
-});
+    const sessions = await Session.findAll({
+      where: {
+        isPaid: true,
+        TeacherId: teacherId,
+        createdAt: {
+          [Op.between]: [
+            new Date(`${currentYear}-01-01T00:00:00Z`),
+            new Date(`${currentYear}-12-31T23:59:59Z`)
+          ]
+        }
+      },
+      attributes: [
+        [fn("MONTH", col("createdAt")), "month"],
+        [fn("COUNT", col("id")), "total"]
+      ],
+      group: [literal("month")],
+      order: [[literal("month"), "ASC"]]
+    });
 
-// تجهيز بيانات 12 شهر
-const monthlyData = Array.from({ length: 12 }, (_, i) => {
-  const monthNum = i + 1;
-  const found = sessions.find(
-    s => parseInt(s.dataValues.month) === monthNum
-  );
+    // تجهيز بيانات 12 شهر
+    const monthlyData = Array.from({ length: 12 }, (_, i) => {
+      const monthNum = i + 1;
+      const found = sessions.find(
+        s => parseInt(s.dataValues.month) === monthNum
+      );
 
-  return {
-    month: `${monthNum.toString().padStart(2, "0")}`,
-    Lessons: found ? parseInt(found.dataValues.total) : 0
-  };
-});
+      return {
+        month: `${monthNum.toString().padStart(2, "0")}`,
+        Lessons: found ? parseInt(found.dataValues.total) : 0
+      };
+    });
 
-  const sessionsNumber = await Session.count({
-    where: {
-      isPaid: true,
-      TeacherId:teacherId
-    },
-  });
-  const packageWaiting = await Package.count({
-    where: {
-      TeacherId:teacherId,
-      status: "1",
-    },
-  });
-  const packageOnline = await Package.count({
-    where: {
-      TeacherId:teacherId,
-      status: "2",
-    },
-  });
-   const teacherLectureWaiting = await TeacherLecture.count({
-    where: {
-      TeacherId:teacherId,
-      status: "1",
-    },
-  });
+    const sessionsNumber = await Session.count({
+      where: {
+        isPaid: true,
+        TeacherId: teacherId
+      },
+    });
+    const packageWaiting = await Package.count({
+      where: {
+        TeacherId: teacherId,
+        status: "1",
+      },
+    });
+    const packageOnline = await Package.count({
+      where: {
+        TeacherId: teacherId,
+        status: "2",
+      },
+    });
+    const teacherLectureWaiting = await TeacherLecture.count({
+      where: {
+        TeacherId: teacherId,
+        status: "1",
+      },
+    });
     const discountsNumWaiting = await Discounts.count({
       where: {
-      TeacherId:teacherId,
+        TeacherId: teacherId,
         status: "1",
       },
     });
-  
+
     const discountsOnline = await Discounts.count({
       where: {
-      TeacherId:teacherId,
+        TeacherId: teacherId,
         status: "2",
       },
     });
-  
+
     const testsOnline = await Tests.count({
       where: {
-      TeacherId:teacherId,
+        TeacherId: teacherId,
         status: "2",
       },
     });
-    const testsWaiting= await Tests.count({
+    const testsWaiting = await Tests.count({
       where: {
-      TeacherId:teacherId,
+        TeacherId: teacherId,
         status: "1",
       },
     });
 
-  const adsNumTeacherWaiting = await AdsTeachers.count({
-    where: {
-      TeacherId:teacherId,
-      status: "1",
-    },
-  });
-  const adsNumTeacher = await AdsTeachers.count({
-    where: {
-      TeacherId:teacherId,
-      status: "2",
-    },
-  });
+    const adsNumTeacherWaiting = await AdsTeachers.count({
+      where: {
+        TeacherId: teacherId,
+        status: "1",
+      },
+    });
+    const adsNumTeacher = await AdsTeachers.count({
+      where: {
+        TeacherId: teacherId,
+        status: "2",
+      },
+    });
 
-  const careerNumWaiting = await Career.count({
-    where: {
-      TeacherId:teacherId,
-      status: "1",
-    },
-  });
-  const careerOnline = await Career.count({
-    where: {
-      TeacherId:teacherId,
-      status: "2",
-    },
-  });
+    const careerNumWaiting = await Career.count({
+      where: {
+        TeacherId: teacherId,
+        status: "1",
+      },
+    });
+    const careerOnline = await Career.count({
+      where: {
+        TeacherId: teacherId,
+        status: "2",
+      },
+    });
 
-  const lessonWaiting = await Lessons.count({
-    where: {
-      TeacherId:teacherId,
-      status: "pending",
-    },
-  });
-  const lessonOnline = await Lessons.count({
-    where: {
-      TeacherId:teacherId,
-      status: "approved",
-    },
-  });
-  const lessonCanceled = await Lessons.count({
-    where: {
-      TeacherId:teacherId,
-      status: "canceled",
-    },
-  });
-  const lectureOline= await TeacherLecture.count({
-    where: {
-      status: "2" ,
-      TeacherId:teacherId
-    },
-  });
-  const students = await Session.count({
-   where: {
-    TeacherId: teacherId,
-    isPaid: true,
-    StudentId: {
-      [Op.ne]: null, // StudentId not null
-    },
-  },
-  distinct: true,
-  col: 'StudentId',
-  });
-const studentsdata = await Session.findAll({
-  where: {
-    TeacherId: teacherId,
-    isPaid: true,
-    StudentId: {
-      [Op.ne]: null, // StudentId not null
-    },
-  },
-  distinct: true,
-  col: 'StudentId',
-});
+    const lessonWaiting = await Lessons.count({
+      where: {
+        TeacherId: teacherId,
+        status: "pending",
+      },
+    });
+    const lessonOnline = await Lessons.count({
+      where: {
+        TeacherId: teacherId,
+        status: "approved",
+      },
+    });
+    const lessonCanceled = await Lessons.count({
+      where: {
+        TeacherId: teacherId,
+        status: "canceled",
+      },
+    });
+    const lectureOline = await TeacherLecture.count({
+      where: {
+        status: "2",
+        TeacherId: teacherId
+      },
+    });
+    const students = await Session.count({
+      where: {
+        TeacherId: teacherId,
+        isPaid: true,
+        StudentId: {
+          [Op.ne]: null, // StudentId not null
+        },
+      },
+      distinct: true,
+      col: 'StudentId',
+    });
+    const studentsdata = await Session.findAll({
+      where: {
+        TeacherId: teacherId,
+        isPaid: true,
+        StudentId: {
+          [Op.ne]: null, // StudentId not null
+        },
+      },
+      distinct: true,
+      col: 'StudentId',
+    });
 
 
-  const today = new Date();
-const dayOfWeek = today.getDay(); // 0 (Sun) - 6 (Sat)
-const diffToMonday = (dayOfWeek + 6) % 7; // احسب كم ترجع ليوم الاثنين
-const startOfWeek = new Date(today);
-startOfWeek.setDate(today.getDate() - diffToMonday);
-startOfWeek.setHours(0, 0, 0, 0);
+    const today = new Date();
+    const dayOfWeek = today.getDay(); // 0 (Sun) - 6 (Sat)
+    const diffToMonday = (dayOfWeek + 6) % 7; // احسب كم ترجع ليوم الاثنين
+    const startOfWeek = new Date(today);
+    startOfWeek.setDate(today.getDate() - diffToMonday);
+    startOfWeek.setHours(0, 0, 0, 0);
 
-const endOfWeek = new Date(startOfWeek);
-endOfWeek.setDate(startOfWeek.getDate() + 6);
-endOfWeek.setHours(23, 59, 59, 999);
-const sessionsThisWeek = await Session.count({
-  where: {
-    isPaid: true,
-    teacherAccept: true,
-    TeacherId: teacherId,
-    createdAt: {
-      [Op.between]: [startOfWeek, endOfWeek],
-    },
-  },
-});
+    const endOfWeek = new Date(startOfWeek);
+    endOfWeek.setDate(startOfWeek.getDate() + 6);
+    endOfWeek.setHours(23, 59, 59, 999);
+    const sessionsThisWeek = await Session.count({
+      where: {
+        isPaid: true,
+        teacherAccept: true,
+        TeacherId: teacherId,
+        createdAt: {
+          [Op.between]: [startOfWeek, endOfWeek],
+        },
+      },
+    });
 
     return res.status(200).json({
       students,
@@ -3352,7 +3368,7 @@ const sessionsThisWeek = await Session.count({
       careerNumWaiting,
       adsNumTeacher,
       adsNumTeacherWaiting,
-      lessonsChart:monthlyData
+      lessonsChart: monthlyData
     });
   } catch (error) {
     console.error("Error fetching monthly revenue:", error);
@@ -3360,39 +3376,192 @@ const sessionsThisWeek = await Session.count({
   }
 };
 
+
+const getMyStudentSubscriptions = async (req, res) => {
+  try {
+    const { TeacherId } = req.params;
+
+    // جلب الحزم، الاختبارات، المحاضرات، الخصومات الخاصة بالمدرب
+    const [myPackages, myTests] = await Promise.all([
+      Package.findAll({ where: { TeacherId } }),
+      Tests.findAll({ where: { TeacherId } }),
+    ]);
+
+    // ✅ جلب بيانات الطلاب المشتركين في الحزم
+    const packagesData = await Promise.all(
+      myPackages.map(async (pkg) => {
+        const packageStudents = await StudentPackage.findAll({
+          where: { PackageId: pkg.id, isPaid: true },
+          include: [
+            {
+              model: Student,
+              attributes: ['id', 'name', 'email'],
+            },
+            {
+              model: Package,
+              attributes: ['id', 'titleAR', 'titleEN'],
+            },
+          ],
+        });
+
+        if (packageStudents.length === 0) return null;
+
+        return {
+          type: 'package',
+          packageId: pkg.id,
+          packageTitleAR: pkg.titleAR,
+          packageTitleEN: pkg.titleEN,
+          students: packageStudents.map((pak) => ({
+            student: pak.Student,
+            price: pak.price,
+            currency: pak.currency,
+            subscribedAt: pak.createdAt,
+          })),
+        };
+      })
+    );
+
+    // ✅ جلب بيانات الطلاب المشتركين في الاختبارات
+    const testsData = await Promise.all(
+      myTests.map(async (test) => {
+        const testStudents = await StudentTest.findAll({
+          where: { TestId: test.id, isPaid: true },
+          include: [
+            {
+              model: Student,
+              attributes: ['id', 'name', 'email'],
+            },
+            {
+              model: Tests,
+              include: [
+                {
+                  model: Level,
+                  attributes: ['id', 'titleAR', 'titleEN'],
+                },
+              ],
+            },
+          ],
+        });
+
+        if (testStudents.length === 0) return null;
+
+        return {
+          type: 'test',
+          tests:testStudents.map((ts) => ({
+            testId: ts.Test.id,
+            currency: ts.currency,
+            price: ts.price,
+            testTitleAR: ts.Test.Level.titleAR,
+            testTitleEN: ts.Test.Level.titleEN,
+            student: ts.Student,
+            subscribedAt: ts.createdAt,
+          })),
+        };
+      })
+    );
+
+    // // ✅ المحاضرات التي اشترك فيها الطلاب
+    const lectureSubscriptions = await StudentLecture.findAll({
+      where: { isPaid: true },
+      include: [
+        {
+          model: Student,
+          attributes: ['id', 'name', 'email'],
+        },
+        {
+          model: TeacherLecture,
+          where: { TeacherId },
+          attributes: ['id', 'titleAR', 'titleEN'],
+        },
+      ],
+    });
+
+    const lecturesData = lectureSubscriptions.map((entry) => ({
+      type: 'lecture',
+      student: entry.Student,
+      currency: entry.currency,
+      price: entry.price,
+      lecture: entry.TeacherLecture,
+      subscribedAt: entry.createdAt,
+    }));
+
+    // // ✅ الخصومات التي استخدمها الطلاب
+    const discountSubscriptions = await StudentDiscount.findAll({
+      where: { isPaid: true },
+      include: [
+        {
+          model: Student,
+          attributes: ['id', 'name', 'email'],
+        },
+        {
+          model: Discounts,
+          where: { TeacherId, },
+          attributes: ['id', 'titleAR', 'titleEN'],
+        },
+      ],
+    });
+
+    const discountsData = discountSubscriptions.map((entry) => ({
+      type: 'discount',
+      student: entry.Student,
+      currency: entry.currency,
+      price: entry.price,
+      discount: entry.Discount,
+      subscribedAt: entry.createdAt,
+    }));
+
+    // ✅ تجميع الكل وتصفية null
+    const combinedData = [
+      ...packagesData,
+      ...testsData,
+      ...lecturesData,
+      ...discountsData,
+    ].filter((item) => item !== null);
+
+    res.status(200).json(combinedData);
+  } catch (error) {
+    console.error('Error fetching my package subscriptions:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+};
+
+
+
+
 module.exports = {
   getTeacherStats,
   addEvaluations,
+  getMyStudentSubscriptions,
   createExchangeRequestsTeacher,
   availbleTeacher,
   getSessionsByTeacher,
-  signUp,               verifyCode,           signPassword,       signAbout,
-  signAdditionalInfo,   settingNotification,  getSingleTeacher,   uploadImage,
-  addSubjects,          addDescription,       signResume,         
-  signAvailability,     signVideoLink,        searchTeacherFilterSide,
-  searchTeacherFilterTop,   resetPassword,      getAllSessions,
-  getCredit,            getTeacherFinancial,    updateNotification,
-  getTeacherRate,       acceptLesson,           endLesson,
-  getMyStudents,        requestCheckout,        getProfitRatio,
+  signUp, verifyCode, signPassword, signAbout,
+  signAdditionalInfo, settingNotification, getSingleTeacher, uploadImage,
+  addSubjects, addDescription, signResume,
+  signAvailability, signVideoLink, searchTeacherFilterSide,
+  searchTeacherFilterTop, resetPassword, getAllSessions,
+  getCredit, getTeacherFinancial, updateNotification,
+  getTeacherRate, acceptLesson, endLesson,
+  getMyStudents, requestCheckout, getProfitRatio,
   getNumbers,
   getAllCertificates,
   updateTeacherCertificates,
   deleteTeacherCertificates,
-  createLecture,          getLectureByTeacherId,    deleteLecture,      updateLecture,      getSingleLecture,
-  createLesson,           getLessonByTeacherId,     getSingleLesson,    updateLesson,       deleteLesson,
+  createLecture, getLectureByTeacherId, deleteLecture, updateLecture, getSingleLecture,
+  createLesson, getLessonByTeacherId, getSingleLesson, updateLesson, deleteLesson,
   updateLogout,
-  getPackageByTeacherId,  getSinglePackage,         createPackage,
-  deletePackage,          updatePackage,            getPackageAcceptByTeacherId,
-  getPackageAccept,       getAllTeachers,           
-  getQuestionByTeacherId, getSingleQuestion,        createQuestion,
-  deleteQuestion,         updateQuestion,
-  getQuestionChooseByTeacherId,           getSingleQuestionChoose,
-  createQuestionChoose,                   updateQuestionChoose,
+  getPackageByTeacherId, getSinglePackage, createPackage,
+  deletePackage, updatePackage, getPackageAcceptByTeacherId,
+  getPackageAccept, getAllTeachers,
+  getQuestionByTeacherId, getSingleQuestion, createQuestion,
+  deleteQuestion, updateQuestion,
+  getQuestionChooseByTeacherId, getSingleQuestionChoose,
+  createQuestionChoose, updateQuestionChoose,
   deleteQuestionChoose,
-  getTestsByTeacherId,                    getSingleTest,
-  createTest,                             updateTest,
-  deleteTest,                             getDiscountByTeacherId,
-  getSingleDiscount,                      createDiscount,
-  deleteDiscount,                         updateDiscount,
-  getRefundTeacherById,                   getAllTeachersRating,PersonalDescription
+  getTestsByTeacherId, getSingleTest,
+  createTest, updateTest,
+  deleteTest, getDiscountByTeacherId,
+  getSingleDiscount, createDiscount,
+  deleteDiscount, updateDiscount,
+  getRefundTeacherById, getAllTeachersRating, PersonalDescription
 };

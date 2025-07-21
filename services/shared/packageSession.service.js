@@ -42,7 +42,7 @@ const checkAndCreateSessions=async({studentId, packageId, teacherId}) =>{
     price: studentPackage.price / totalLessons,
     totalPrice: studentPackage.price,
     isPaid: true,
-    sessionId: `${studentId}-${packageId}-${date}`,
+    sessionId: `${packageId}`,
     teacherAccept: false,
     studentAccept: false,
     StudentId: studentId,

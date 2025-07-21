@@ -326,27 +326,66 @@ const acceptCheckout = async (req, res) => {
 
 const rejectCheckout = async (req, res) => {
   const { checkoutId } = req.params;
+
+  // جلب تفاصيل الطلب
   const checkout = await CheckoutRequest.findOne({
     where: {
       id: checkoutId,
     },
   });
+
+  // إذا لم يتم العثور على الطلب
   if (!checkout) {
     throw new serverErrs.BAD_REQUEST({
       arabic: "طلب الدفع غير موجود",
-      english: "checkout request not found",
+      english: "Checkout request not found",
     });
   }
+
+  // الحصول على المعلم المرتبط بالطلب
+  const teacher = await Teacher.findOne({
+    where: {
+      id: checkout.TeacherId, // افترض أن المعلم مرتبط بـ TeacherId في الطلب
+    },
+  });
+
+  // إذا لم يتم العثور على المعلم
+  if (!teacher) {
+    throw new serverErrs.BAD_REQUEST({
+      arabic: "المدرب غير موجود",
+      english: "Trainer not found",
+    });
+  }
+
+  // خصم المبلغ من `dues` عند رفض الطلب
+  const updatedDues = teacher.dues - checkout.value;
+
+  // تأكد من أن `dues` لا تصبح سلبية
+  if (updatedDues < 0) {
+    throw new serverErrs.BAD_REQUEST({
+      arabic: "لا يمكن خصم المبلغ لأن الرصيد المستحق أقل من المبلغ المطلوب خصمه",
+      english: "Cannot deduct the amount because the dues are less than the requested amount",
+    });
+  }
+
+  // تحديث `dues` في سجل المعلم
+  await teacher.update({
+    dues: updatedDues,
+  });
+
+  // تحديث حالة الطلب إلى مرفوض
   await checkout.update({ status: -1 });
 
+  // الرد على العميل
   res.send({
     status: 201,
     msg: {
-      arabic: "تم رفض طلب الدفع بنجاح",
-      english: "successful rejecting Checkout Requests",
+      arabic: "تم رفض طلب الدفع بنجاح وتم خصم المبلغ من الرصيد المستحق",
+      english: "Checkout request rejected successfully and amount deducted from dues",
     },
   });
 };
+
 
 const createSubjectCategory = async (req, res) => {
   const image = req.files[0].filename;
