@@ -191,8 +191,8 @@ adminRouter.get(
   checkUserAuth("admin"),
   errorCatcher(getProcessedCheckoutRequests)
 );
-adminRouter.get("/checkout/accept/:checkoutId",verifyToken,checkUserAuth("admin"),errorCatcher(acceptCheckout));
-adminRouter.get("/checkout/reject/:checkoutId",verifyToken,checkUserAuth("admin"),errorCatcher(rejectCheckout));
+adminRouter.post("/checkout/accept/:checkoutId/:language",verifyToken,checkUserAuth("admin"),errorCatcher(acceptCheckout));
+adminRouter.post("/checkout/reject/:checkoutId/:language",verifyToken,checkUserAuth("admin"),errorCatcher(rejectCheckout));
 adminRouter.post("/accept/:teacherId",verifyToken,checkUserAuth("admin"),errorCatcher(acceptTeacher));
 adminRouter.get(
   "/acceptedTeachers",

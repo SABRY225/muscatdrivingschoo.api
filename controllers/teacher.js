@@ -1478,7 +1478,8 @@ const requestCheckout = async (req, res) => {
     }
 
     const availableAmount = totalAmount - dues;
-
+    console.log(totalAmount, dues, availableAmount);
+    
     if (!Number(amount) || Number(amount) <= 0 || Number(amount) > availableAmount) {
       return res.status(400).send({
         arabic: "قيمة المبلغ غير صالحة",
@@ -1535,10 +1536,7 @@ const requestCheckout = async (req, res) => {
     });
     // إرسال إشعار واتساب للإداريين
     try {
-      const admins = await Admin.findAll({
-        where: { isSuperAdmin: true },
-        attributes: ['phone', 'language']
-      });
+      const admins = await Admin.findAll();
 
       const templateName = (admins[0]?.language === 'ar') ? 
         VERIFICATION_TEMPLATES.WITHDRAWAL_REQUEST_AR : 
@@ -1551,7 +1549,7 @@ const requestCheckout = async (req, res) => {
       await Promise.all(admins.map(async (admin) => {
         try {
           await sendWhatsAppTemplate({
-            to: admin.phone.startsWith('+') ? admin.phone : `+${admin.phone}`,
+            to: admin.whatsappPhone.startsWith('+') ? admin.whatsappPhone : `+${admin.whatsappPhone}`,
             templateName,
             variables: [
               teacherName,
@@ -1565,7 +1563,7 @@ const requestCheckout = async (req, res) => {
             fallbackToEnglish: true,
           });
         } catch (error) {
-          console.error(`فشل إرسال إشعار السحب إلى ${admin.phone}:`, error);
+          console.error(`فشل إرسال إشعار السحب إلى ${admin.whatsappPhone}:`, error);
         }
       }));
       return res.status(201).send({
