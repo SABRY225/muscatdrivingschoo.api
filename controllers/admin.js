@@ -8,7 +8,6 @@ const {
   CurriculumTeacher, RemoteSession, F2FSessionStd,
   F2FSessionTeacher, Certificates, Experience,
   EducationDegree, TeacherDay,
-  // ADD By eng.reem.shwky@gamil.com
   TrainingCategoryType, TeacherTypes, LimeType,
   Package, Rate, DrivingLicenses,
   TeacherLecture, TeacherLimits,
@@ -180,11 +179,18 @@ const createStudent = async (req, res) => {
     to: phoneNumber,
   };
   sendEmail(mailOptions, smsOptions);
+<<<<<<< HEAD
 
   // إرسال رسالة واتساب ترحيبية
   try {
     const { VERIFICATION_TEMPLATES } = require("../config/whatsapp-templates");
     const { sendWhatsAppTemplate } = require("../utils/sendWhatsAppVerificationCode");
+=======
+  // إرسال رسالة واتساب ترحيبية
+  try {
+    const { VERIFICATION_TEMPLATES } = require("../config/whatsapp-templates");
+    const { sendWhatsAppTemplate } = require("../utils/whatsapp");
+>>>>>>> master
     
     const language = 'ar'; // أو يمكنك جعلها متغيرة حسب لغة المستخدم
     const templateName = language === "ar"
@@ -200,12 +206,16 @@ const createStudent = async (req, res) => {
       messageType: "welcome",
       fallbackToEnglish: true,
     });
+<<<<<<< HEAD
   } catch (error) {
     console.error("Error sending welcome WhatsApp message:", error);
     // لا نوقف العملية في حالة فشل إرسال رسالة الواتساب
   }
 
   res.send({
+=======
+    res.send({
+>>>>>>> master
     status: 201,
     data: null,
     msg: {
@@ -213,6 +223,10 @@ const createStudent = async (req, res) => {
       english: "successfully created new account",
     },
   });
+  } catch (error) {
+    console.error("Error sending welcome WhatsApp message:", error);
+    // لا نوقف العملية في حالة فشل إرسال رسالة الواتساب
+  }
 };
 
 const createTeacher = async (req, res) => {
@@ -268,11 +282,18 @@ const createTeacher = async (req, res) => {
     to: phone,
   };
   sendEmail(mailOptions, smsOptions);
+<<<<<<< HEAD
 
   // إرسال رسالة واتساب ترحيبية
   try {
     const { VERIFICATION_TEMPLATES } = require("../config/whatsapp-templates");
     const { sendWhatsAppTemplate } = require("../utils/sendWhatsAppVerificationCode");
+=======
+   // إرسال رسالة واتساب ترحيبية
+  try {
+    const { VERIFICATION_TEMPLATES } = require("../config/whatsapp-templates");
+    const { sendWhatsAppTemplate } = require("../utils/whatsapp");
+>>>>>>> master
     
     const language = 'ar'; // أو يمكنك جعلها متغيرة حسب لغة المستخدم
     const templateName = language === "ar"
@@ -288,11 +309,14 @@ const createTeacher = async (req, res) => {
       messageType: "welcome",
       fallbackToEnglish: true,
     });
+<<<<<<< HEAD
   } catch (error) {
     console.error("Error sending welcome WhatsApp message:", error);
     // لا نوقف العملية في حالة فشل إرسال رسالة الواتساب
   }
 
+=======
+>>>>>>> master
   res.send({
     status: 201,
     data: null,
@@ -301,6 +325,10 @@ const createTeacher = async (req, res) => {
       english: "successfully created new account",
     },
   });
+  } catch (error) {
+    console.error("Error sending welcome WhatsApp message:", error);
+    // لا نوقف العملية في حالة فشل إرسال رسالة الواتساب
+  }
 };
 
 //WhatsData
@@ -351,10 +379,15 @@ const getProcessedCheckoutRequests = async (req, res) => {
     },
   });
 };
+<<<<<<< HEAD
 
 const { sendWhatsAppTemplate } = require("../utils/sendWhatsAppVerificationCode");
 const { VERIFICATION_TEMPLATES } = require("../config/whatsapp-templates");
 
+=======
+const { sendWhatsAppTemplate } = require("../utils/whatsapp");
+const { VERIFICATION_TEMPLATES } = require("../config/whatsapp-templates");
+>>>>>>> master
 const acceptCheckout = async (req, res) => {
   const { checkoutId } = req.params;
   const checkout = await CheckoutRequest.findOne({
@@ -369,11 +402,21 @@ const acceptCheckout = async (req, res) => {
       english: "checkout request not found",
     });
   }
+<<<<<<< HEAD
   
   await checkout.update({ status: 1 });
   
   // إرسال إشعار واتساب للمعلم
   try {
+=======
+  const teacher = await Teacher.findOne({
+    where: {
+      id: checkout.TeacherId, // افترض أن المعلم مرتبط بـ TeacherId في الطلب
+    },
+  });
+  await checkout.update({ status: 1 });
+   try {
+>>>>>>> master
     const teacher = checkout.Teacher;
     if (teacher && teacher.phone) {
       const templateName = teacher.language === 'ar' 
@@ -394,11 +437,14 @@ const acceptCheckout = async (req, res) => {
         fallbackToEnglish: true,
       });
     }
+<<<<<<< HEAD
   } catch (error) {
     console.error('خطأ في إرسال إشعار القبول:', error);
     // لا نوقف العملية في حالة فشل إرسال الإشعار
   }
   
+=======
+>>>>>>> master
   res.send({
     status: 201,
     msg: {
@@ -406,25 +452,40 @@ const acceptCheckout = async (req, res) => {
       english: "Checkout request accepted successfully",
     },
   });
+  } catch (error) {
+    console.error('خطأ في إرسال إشعار القبول:', error);
+    // لا نوقف العملية في حالة فشل إرسال الإشعار
+  }
 };
 
 const rejectCheckout = async (req, res) => {
   const { checkoutId } = req.params;
+<<<<<<< HEAD
   const { rejectionReason } = req.body; // سبب الرفض (اختياري)
   
+=======
+  const { rejectionReason } = req.body;
+  // جلب تفاصيل الطلب
+>>>>>>> master
   const checkout = await CheckoutRequest.findOne({
     where: {
       id: checkoutId,
     },
     include: [Teacher]
   });
+<<<<<<< HEAD
   
+=======
+
+  // إذا لم يتم العثور على الطلب
+>>>>>>> master
   if (!checkout) {
     throw new serverErrs.BAD_REQUEST({
       arabic: "طلب الدفع غير موجود",
       english: "Checkout request not found",
     });
   }
+<<<<<<< HEAD
   
   await checkout.update({ 
     status: -1,
@@ -432,6 +493,44 @@ const rejectCheckout = async (req, res) => {
   });
   
   // إرسال إشعار واتساب للمعلم
+=======
+
+  // الحصول على المعلم المرتبط بالطلب
+  const teacher = await Teacher.findOne({
+    where: {
+      id: checkout.TeacherId, // افترض أن المعلم مرتبط بـ TeacherId في الطلب
+    },
+  });
+
+  // إذا لم يتم العثور على المعلم
+  if (!teacher) {
+    throw new serverErrs.BAD_REQUEST({
+      arabic: "المدرب غير موجود",
+      english: "Trainer not found",
+    });
+  }
+
+  // خصم المبلغ من `dues` عند رفض الطلب
+  const updatedDues = teacher.dues - checkout.value;
+
+  // تأكد من أن `dues` لا تصبح سلبية
+  if (updatedDues < 0) {
+    throw new serverErrs.BAD_REQUEST({
+      arabic: "لا يمكن خصم المبلغ لأن الرصيد المستحق أقل من المبلغ المطلوب خصمه",
+      english: "Cannot deduct the amount because the dues are less than the requested amount",
+    });
+  }
+
+  // تحديث `dues` في سجل المعلم
+  await teacher.update({
+    dues: updatedDues,
+  });
+
+  // تحديث حالة الطلب إلى مرفوض
+  await checkout.update({ status: -1 });
+
+    // إرسال إشعار واتساب للمعلم
+>>>>>>> master
   try {
     const teacher = checkout.Teacher;
     if (teacher && teacher.phone) {
@@ -449,7 +548,11 @@ const rejectCheckout = async (req, res) => {
       if (rejectionReason) {
         variables.push(rejectionReason);
       } else {
+<<<<<<< HEAD
         variables.push(teacher.language === 'ar' ? 'لا يوجد سبب محدد' : 'No specific reason');
+=======
+        variables.push(teacher.language === 'ar' ? 'تم رفض طلب الدفع  وتم خصم المبلغ من الرصيد المستحق' : 'Checkout request rejected and amount deducted from dues');
+>>>>>>> master
       }
       
       await sendWhatsAppTemplate({
@@ -462,19 +565,34 @@ const rejectCheckout = async (req, res) => {
         fallbackToEnglish: true,
       });
     }
+<<<<<<< HEAD
   } catch (error) {
     console.error('خطأ في إرسال إشعار الرفض:', error);
     // لا نوقف العملية في حالة فشل إرسال الإشعار
   }
   
+=======
+      // الرد على العميل
+>>>>>>> master
   res.send({
     status: 200,
     msg: {
+<<<<<<< HEAD
       arabic: "تم رفض طلب الدفع بنجاح",
       english: "Checkout request rejected successfully",
+=======
+      arabic: "تم رفض طلب الدفع  وتم خصم المبلغ من الرصيد المستحق",
+      english: "Checkout request rejected and amount deducted from dues",
+>>>>>>> master
     },
   });
+  } catch (error) {
+    console.error('خطأ في إرسال إشعار الرفض:', error);
+    // لا نوقف العملية في حالة فشل إرسال الإشعار
+  }
+  
 };
+
 
 const createSubjectCategory = async (req, res) => {
   const image = req.files[0].filename;

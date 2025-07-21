@@ -23,34 +23,12 @@ const {
 } = require("../../utils/EmailBodyGenerator");
 const { addPointsForPurchase } = require("./points.service");
 const { sendWhatsAppTemplate } = require("../../utils/whatsapp");
-
-const getServiceType = (type, language = 'ar') => {
-  const serviceTypes = {
-    'WITHDRAW': { ar: 'سحب', en: 'Withdraw' },
-    'DEPOSIT': { ar: 'إيداع', en: 'Deposit' },
-    'LESSON': { ar: 'حصة', en: 'Lesson' },
-    'PAYMENT': { ar: 'دفع', en: 'Payment' },
-    'booking': { ar: 'حجز', en: 'Booking' },
-    'lesson_booking': { ar: 'حجز حصة', en: 'Lesson Booking' },
-    'wallet_charge': { ar: 'شحن محفظة', en: 'Wallet Charge' },
-    'payment_confirmation': { ar: 'تأكيد دفع', en: 'Payment Confirmation' },
-    'wallet_charge_confirmation': { ar: 'تأكيد شحن المحفظة', en: 'Wallet Charge Confirmation' },
-    // يمكن إضافة المزيد من الأنواع عند الحاجة
-  };
-  
-  // البحث عن النوع مع تجاهل حالة الأحرف
-  const normalizedType = type && typeof type === 'string' ? type.toUpperCase() : type;
-  const service = serviceTypes[normalizedType] || { ar: type, en: type };
-  
-  return language === 'ar' ? service.ar : service.en;
-};
 const { PAYMENT_TEMPLATES } = require("../../config/whatsapp-templates");
 const { sendInvoiceWhatsApp } = require("../../utils/invoiceWhatsApp");
 const Invite = require("../../models/Invite");
 const Lessons = require("../../models/Lesson");
 const { checkAndCreateSessions } = require("./packageSession.service");
-const fetch = (...args) =>
-  import("node-fetch").then(({ default: fetch }) => fetch(...args));
+const fetch = (...args) => import("node-fetch").then(({ default: fetch }) => fetch(...args));
 
 // شحن رصيد من ثواني
 exports.handleThawaniPaymentCharge = async (data, newPrice, createEntityFn) => {
@@ -140,8 +118,8 @@ exports.handleThawaniPayment = async (data, newPrice, createEntityFn) => {
       global.lessionRequestId = data.lessionRequestId;
     }
     await created.save();
-console.log("global.session_id", global.session_id);
-  console.log("global.typePay", global.typePay);
+    console.log("global.session_id", global.session_id);
+    console.log("global.typePay", global.typePay);
     return {
       data: `https://uatcheckout.thawani.om/pay/${result.data.session_id}?key=${THAWANI_PUBLISHABLE_KEY}`,
       msg: {
@@ -172,7 +150,16 @@ exports.handleWalletPayment = async (data, newPrice, createEntityFn, type) => {
   const created = await createEntityFn(data);
   created.isPaid = true;
   await created.save();
+  if (data.type === "lesson_booking") {
+    const lession = await Lessons.findByPk(data.lessionRequestId);
+    if (!lession) throw new Error("Lesson not found");
 
+    lession.status = "paid";
+    await lession.save();
+  }
+  if (data.type === "package_booking") {
+    await checkAndCreateSessions({ studentId: StudentId, packageId: data.PackageId, teacherId: data.TeacherId })
+  }
   await Wallet.create({
     StudentId,
     price: data.price,
@@ -213,12 +200,12 @@ exports.handleWalletPayment = async (data, newPrice, createEntityFn, type) => {
   // send email
   const mailOptions = generateChargeConfirmationEmail(
     {
-    language,
-    email:student.email,
-    name:student.name,
-    price:newPrice,
-    currency:currency,
-  }
+      language,
+      email: student.email,
+      name: student.name,
+      price: newPrice,
+      currency: currency,
+    }
   );
   await sendEmail(mailOptions);
 
@@ -287,7 +274,8 @@ exports.handleWalletPayment = async (data, newPrice, createEntityFn, type) => {
 // الدفع من خلال النقاط
 exports.handlePointsPayment = async (data, newPrice, createEntityFn, type) => {
   const { StudentId, TeacherId, currency, language } = data;
-
+  console.log(data);
+  
   const student = await Student.findOne({ where: { id: StudentId } });
   const studentInvite = await Invite.findOne({ where: { userId: StudentId } });
   if (!studentInvite) {
@@ -317,7 +305,16 @@ exports.handlePointsPayment = async (data, newPrice, createEntityFn, type) => {
 
   studentInvite.amountPoints -= +newPrice * 50
   await studentInvite.save();
+  if (data.type === "lesson_booking") {
+    const lession = await Lessons.findByPk(data.lessionRequestId);
+    if (!lession) throw new Error("Lesson not found");
 
+    lession.status = "paid";
+    await lession.save();
+  }
+  if (data.type === "package_booking") {
+    await checkAndCreateSessions({ studentId: StudentId, packageId: data.PackageId, teacherId: data.TeacherId })
+  }
   await FinancialRecord.create({
     StudentId,
     TeacherId,
@@ -465,17 +462,17 @@ exports.handleconfirmePayment = async (language) => {
     global.session_id = null;
 
     const student = await Student.findOne({ where: { id: StudentId } });
-    student.wallet += +wallet.price;
+    student.wallet += wallet.price;
     await student.save();
 
     const mailOptions = generateChargeConfirmationEmail(
       {
-      language,
-      email:student.email,
-      name:student.name,
-      price:wallet.price,
-      currency:wallet.currency,
-    }
+        language,
+        email: student.email,
+        name: student.name,
+        price: wallet.price,
+        currency: wallet.currency,
+      }
     );
     await sendEmail(mailOptions);
 
@@ -505,31 +502,30 @@ exports.handleconfirmePayment = async (language) => {
         invoiceType: "wallet_charge",
         transactionId: wallet.sessionId,
       });
+      await sendNotification(
+        `تم ايداع مبلغ قدره ${wallet.price} ريال عماني`,
+        `An amount of ${wallet.price} Omani Riyals has been deposited.`,
+        student.id,
+        "student",
+        "charge_success",
+      );
+
+      await sendNotification(
+        `تم ايداع مبلغ قدره ${wallet.price} ريال عماني في رصيد الطالب ${student.name}`,
+        `An amount of ${wallet.price} Omani Riyals has been deposited into the student's balance ${student.name}`,
+        "1",
+        "admin",
+        "charge_success",
+      );
+
+      return {
+        status: 201,
+        data: student,
+        msg: { arabic: "تم الدفع بنجاح", english: "successful charging" },
+      };
     } catch (whatsappError) {
       console.error("❌ فشل إرسال رسالة واتساب لتأكيد شحن الرصيد:", whatsappError.message);
     }
-
-    await sendNotification(
-      `تم ايداع مبلغ قدره ${wallet.price} ريال عماني`,
-      `An amount of ${wallet.price} Omani Riyals has been deposited.`,
-      student.id,
-      "student",
-      "charge_success",
-    );
-
-    await sendNotification(
-      `تم ايداع مبلغ قدره ${wallet.price} ريال عماني في رصيد الطالب ${student.name}`,
-      `An amount of ${wallet.price} Omani Riyals has been deposited into the student's balance ${student.name}`,
-      "1",
-      "admin",
-      "charge_success",
-    );
-
-    return {
-      status: 201,
-      data: student,
-      msg: { arabic: "تم الدفع بنجاح", english: "successful charging" },
-    };
   }
 
   const { StudentId } = session;
@@ -537,7 +533,7 @@ exports.handleconfirmePayment = async (language) => {
   await session.save();
   global.session_id = null;
   if (global.typePay === "package_booking") {
-     await checkAndCreateSessions({studentId:StudentId, packageId:session.PackageId, teacherId:global.TeacherId})
+    await checkAndCreateSessions({ studentId: StudentId, packageId: session.PackageId, teacherId: global.TeacherId })
   }
   await FinancialRecord.create({
     amount: session.price,
@@ -562,44 +558,44 @@ exports.handleconfirmePayment = async (language) => {
   const student = await Student.findOne({ where: { id: StudentId } });
   await addPointsForPurchase({ studentId: student.id, teacherId: teacher.id });
 
-const mailOptions = generateInvoiceEmailBody({
-  language,
-  recipientName: student.name,
-  email: student.email,
-  itemName: global.typePay,
-  price: session.price,
-  currency: session.currency,
-  date: new Date(),
-  role: "student"
-});
-const mailOptionsPoints = generatePointsEmailBody({
-  language,
-  recipientName: student.name,
-  email: student.email,
-  newPoints: 3,
-  totalPoints: 20,
-  date: new Date(),
-  role: "student"
-});
-const mailOptionsTeacher = generateInvoiceEmailBody({
-  language,
-  recipientName: `${teacher.firstName} ${teacher.lastName}`,
-  email: teacher.email,
-  itemName: global.typePay,
-  price: session.price,
-  currency: session.currency,
-  date: new Date(),
-  role: "teacher"
-});
-const mailOptionsTeacherPoints = generatePointsEmailBody({
-  language,
-  recipientName: teacher.firstName+" "+teacher.lastName,
-  email: teacher.email,
-  newPoints: 3,
-  totalPoints: 20,
-  date: new Date(),
-  role: "student"
-});
+  const mailOptions = generateInvoiceEmailBody({
+    language,
+    recipientName: student.name,
+    email: student.email,
+    itemName: global.typePay,
+    price: session.price,
+    currency: session.currency,
+    date: new Date(),
+    role: "student"
+  });
+  const mailOptionsPoints = generatePointsEmailBody({
+    language,
+    recipientName: student.name,
+    email: student.email,
+    newPoints: 3,
+    totalPoints: 20,
+    date: new Date(),
+    role: "student"
+  });
+  const mailOptionsTeacher = generateInvoiceEmailBody({
+    language,
+    recipientName: `${teacher.firstName} ${teacher.lastName}`,
+    email: teacher.email,
+    itemName: global.typePay,
+    price: session.price,
+    currency: session.currency,
+    date: new Date(),
+    role: "teacher"
+  });
+  const mailOptionsTeacherPoints = generatePointsEmailBody({
+    language,
+    recipientName: teacher.firstName + " " + teacher.lastName,
+    email: teacher.email,
+    newPoints: 3,
+    totalPoints: 20,
+    date: new Date(),
+    role: "student"
+  });
 
 
   await sendEmail(mailOptions);
@@ -639,7 +635,7 @@ const mailOptionsTeacherPoints = generatePointsEmailBody({
     //   recipientName: teacher.firstName+" "+teacher.lastName,
     //   messageType: "payment_confirmation",
     // });
-    
+
     // student
     await sendInvoiceWhatsApp({
       to: student.phoneNumber,
@@ -667,7 +663,7 @@ const mailOptionsTeacherPoints = generatePointsEmailBody({
         duration: session.period || "60",
       },
     });
-  
+
     // teacher
     await sendInvoiceWhatsApp({
       to: teacher.phone,
@@ -677,20 +673,20 @@ const mailOptionsTeacherPoints = generatePointsEmailBody({
       currency: session.currency,
       paymentMethod: "thawani",
       language,
-      invoiceType: global.typePay=="lesson_booking"
+      invoiceType: global.typePay == "lesson_booking"
         ? "lesson_payment"
-        : global.typePay=="lecture_booking"
+        : global.typePay == "lecture_booking"
           ? "lecture_payment"
-          : global.typePay=="package_booking"
+          : global.typePay == "package_booking"
             ? "package_payment"
-            : global.typePay=="test_booking"
+            : global.typePay == "test_booking"
               ? "test_payment"
-              : global.typePay=="discount_booking"
+              : global.typePay == "discount_booking"
                 ? "discount_payment"
                 : "general_payment",
       transactionId: session.sessionId,
       sessionDetails: {
-        teacherName: student.name ,
+        teacherName: student.name,
         subject: global.typePay,
       },
     });

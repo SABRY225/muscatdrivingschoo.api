@@ -107,3 +107,35 @@ exports.replyMessage = async (req, res) => {
        }});
     }
 };
+
+exports.removeMessage = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!id) {
+      return res.status(400).json({ message: {
+        ar:"معرف الرسالة مطلوب" ,
+        en:"Message ID is required" 
+      }});
+    }
+    const messageToDelete = await Messages.findOne({
+      where: { id }
+    });
+    if (!messageToDelete) {
+      return res.status(404).json({ message: {
+        ar:"الرسالة غير موجودة",
+        en:"Message not found"
+      }});
+    }
+    await messageToDelete.destroy();
+    res.json({ success: true, message: {
+      ar:"تم حذف الرسالة بنجاح",
+      en:"Message deleted successfully"
+    }});
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: {
+      ar:`لقد حدثت مشكلة في السيرفر`,
+      en:`There was a problem with the server`
+     }});
+  }
+}

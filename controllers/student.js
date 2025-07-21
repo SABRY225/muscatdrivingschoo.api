@@ -728,9 +728,9 @@ const getAllLessons = async (req, res) => {
   });
 };
 const getAllLessonsPackage = async (req, res) => {
-  const { studentId } = req.params;
+  const { studentId,packageId } = req.params;
   const lessons = await Session.findAll({
-    where: { StudentId: studentId, isPaid: true,type:"Package Lesson" },
+    where: { StudentId: studentId, isPaid: true,type:"Package Lesson",sessionId:packageId },
     include: [{ model: Teacher }],
   });
 
@@ -791,12 +791,13 @@ const getComingLessons = async (req, res) => {
   });
 };
 const getComingLessonsPackage = async (req, res) => {
-  const { studentId } = req.params;
+  const { studentId ,packageId} = req.params;
   const comingLessons = await Session.findAll({
     where: {
       StudentId: studentId,
       isPaid: true,
       type:"Package Lesson",
+      sessionId:packageId ,
       date: { [Op.gte]: new Date() },
     },
     include: [{ model: Teacher }],
@@ -834,12 +835,13 @@ const getPreviousLessons = async (req, res) => {
 };
 
 const getPreviousLessonsPackage = async (req, res) => {
-  const { studentId } = req.params;
+  const { studentId ,packageId} = req.params;
   const previousLessons = await Session.findAll({
     where: {
       StudentId: studentId,
       isPaid: true,
       type:"Package Lesson",
+      sessionId:packageId ,
       date: { [Op.lt]: new Date() },
     },
     include: [{ model: Teacher }],
@@ -1918,10 +1920,10 @@ const getSessionsByStudent = async (req, res) => {
     // تجميع كل البيانات في مصفوفة واحدة
     const combinedData = [
       ...sessions.map((item) => ({ Type: "session", ...item.toJSON() })),
-      ...lecturesWithTeacher.map((item) => ({ Type: "lecture", ...item })),
-      ...packagesWithTeacher.map((item) => ({ Type: "package", ...item })),
-      ...discountsWithTeacher.map((item) => ({ Type: "discount", ...item })),
-      ...testsWithTeacher.map((item) => ({ Type: "test", ...item })),
+      // ...lecturesWithTeacher.map((item) => ({ Type: "lecture", ...item })),
+      // ...packagesWithTeacher.map((item) => ({ Type: "package", ...item })),
+      // ...discountsWithTeacher.map((item) => ({ Type: "discount", ...item })),
+      // ...testsWithTeacher.map((item) => ({ Type: "test", ...item })),
     ];
 
     if (combinedData.length === 0) {
@@ -2178,21 +2180,25 @@ const completedLessons = await Session.count({
   const packagePay= await StudentPackage.count({
     where: {
       isPaid: true ,
+      StudentId: StudentId
     },
   });
   const testPay= await StudentTest.count({
     where: {
       isPaid: true ,
+      StudentId: StudentId
     },
   });
   const lecturePay= await StudentLecture.count({
     where: {
       isPaid: true ,
+      StudentId: StudentId
     },
   });
   const discountPay= await StudentDiscount.count({
     where: {
       isPaid: true ,
+      StudentId: StudentId
     },
   });
 
@@ -2213,7 +2219,7 @@ const completedLessons = await Session.count({
         { name: "Package", value: packagePay },
         { name: "Test", value: testPay },
         { name: "Lecture", value: lecturePay },
-        { name: "Lesson", value: lessonOnline },
+        { name: "Lesson", value: sessionsNumber },
       ],
       lessonsByInstructor,
     });

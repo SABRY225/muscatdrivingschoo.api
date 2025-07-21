@@ -49,12 +49,12 @@ studentRouter.get(
 studentRouter.get("/Credit/:studentId", errorCatcher(getStudentCredit));
 studentRouter.get("/wallet/:studentId", errorCatcher(getWalletHistory));
 studentRouter.get("/lessons/:studentId", errorCatcher(getAllLessons));
-studentRouter.get("/lessons/package/:studentId", errorCatcher(getAllLessonsPackage));
+studentRouter.get("/lessons/package/:studentId/:packageId", errorCatcher(getAllLessonsPackage));
 studentRouter.get("/teachers/:studentId", errorCatcher(getMyTeachers));
 studentRouter.get("/comingLessons/:studentId", errorCatcher(getComingLessons));
-studentRouter.get("/comingLessons/package/:studentId", errorCatcher(getComingLessonsPackage));
+studentRouter.get("/comingLessons/package/:studentId/:packageId", errorCatcher(getComingLessonsPackage));
 studentRouter.get("/previousLessons/:studentId", errorCatcher(getPreviousLessons) );
-studentRouter.get("/previousLessons/package/:studentId", errorCatcher(getPreviousLessonsPackage) );
+studentRouter.get("/previousLessons/package/:studentId/:packageId", errorCatcher(getPreviousLessonsPackage) );
 
 studentRouter.put("/resetPassword/:StudentId",verifyToken,checkUserAuth("student"),errorCatcher(resetPassword));
 studentRouter.post("/rateTeacher", verifyToken,  checkUserAuth("student"), errorCatcher(rateTeacher) );

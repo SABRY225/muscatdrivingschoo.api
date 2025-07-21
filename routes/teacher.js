@@ -33,7 +33,9 @@ const {
   availbleTeacher,
   PersonalDescription,
   addEvaluations,
-  getTeacherStats
+  getTeacherStats,
+  getMyPackageSubscriptions,
+  getMyStudentSubscriptions
 } = require("../controllers/teacher");
 const errorCatcher    = require("../middlewares/errorCatcher");
 const verifyToken     = require("../middlewares/verifyToken");
@@ -173,6 +175,7 @@ teacherRouter.get("/ads-images/:AdsId", errorCatcher(getAdsImagesByAdsTeachersId
 teacherRouter.delete("/ads/:AdsId", errorCatcher(deleteAdsTeachers));
 
 teacherRouter.get("/stats/charts/:teacherId", errorCatcher(getTeacherStats));
+teacherRouter.get("/student/Subscriptions/:TeacherId", errorCatcher(getMyStudentSubscriptions));
 
 
 module.exports = teacherRouter;

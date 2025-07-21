@@ -34,6 +34,7 @@ const Notification = sequelize.define("Notification", {
                              'dicount_booking',
                              'resource_booking',
                              'charge_success',
+                             "points_update"
                             ),
         allowNull: false,
     },
