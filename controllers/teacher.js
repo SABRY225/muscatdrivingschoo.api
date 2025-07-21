@@ -1454,14 +1454,6 @@ const endLesson = async (req, res) => {
     });
   }
 };
-<<<<<<< HEAD
-
-const { sendWhatsAppTemplate } = require("../utils/sendWhatsAppVerificationCode");
-const { VERIFICATION_TEMPLATES } = require("../config/whatsapp-templates");
-const Admin = require("../models/Admin");
-
-=======
->>>>>>> master
 const requestCheckout = async (req, res) => {
   try {
     const { TeacherId } = req.params;
@@ -1548,16 +1540,6 @@ const requestCheckout = async (req, res) => {
         attributes: ['phone', 'language']
       });
 
-<<<<<<< HEAD
-    // إرسال إشعار واتساب للإداريين
-    try {
-      const admins = await Admin.findAll({
-        where: { isSuperAdmin: true },
-        attributes: ['phone', 'language']
-      });
-
-=======
->>>>>>> master
       const templateName = (admins[0]?.language === 'ar') ? 
         VERIFICATION_TEMPLATES.WITHDRAWAL_REQUEST_AR : 
         VERIFICATION_TEMPLATES.WITHDRAWAL_REQUEST_EN;
@@ -1586,16 +1568,7 @@ const requestCheckout = async (req, res) => {
           console.error(`فشل إرسال إشعار السحب إلى ${admin.phone}:`, error);
         }
       }));
-<<<<<<< HEAD
-    } catch (error) {
-      console.error('خطأ في إرسال إشعارات الواتساب:', error);
-      // لا نوقف العملية في حالة فشل إرسال الإشعار
-    }
-
-    res.status(201).send({
-=======
       return res.status(201).send({
->>>>>>> master
       status: 201,
       data: checkoutRequest,
       msg: {
@@ -3203,40 +3176,23 @@ const addEvaluations = async (req, res) => {
     // إرسال رسالة واتساب
 try {
   const { VERIFICATION_TEMPLATES } = require("../config/whatsapp-templates");
-<<<<<<< HEAD
-  const { sendWhatsAppTemplate } = require("../utils/sendWhatsAppVerificationCode");
-=======
   const { sendWhatsAppTemplate } = require("../utils/whatsapp");
->>>>>>> master
   
   const templateName = language === "ar" 
     ? VERIFICATION_TEMPLATES.CERTIFICATE_ISSUED_AR 
     : VERIFICATION_TEMPLATES.CERTIFICATE_ISSUED_EN;
   
-<<<<<<< HEAD
-  if (student && student.phone) {
-    await sendWhatsAppTemplate({
-      to: student.phone.startsWith('+') ? student.phone : `+${student.phone}`,
-      templateName,
-      variables: [
-        StudentName,                    // اسم الطالب
-=======
   if (student && student.phoneNumber) {
     await sendWhatsAppTemplate({
       to: student.phoneNumber.startsWith('+') ? student.phoneNumber : `+${student.phoneNumber}`,
       templateName,
       variables: [
         student.name,                    // اسم الطالب
->>>>>>> master
         trainingStage,                  // عنوان الشهادة
         new Date(certificateDate).toLocaleDateString(language === "ar" ? "ar-EG" : "en-US") // تاريخ الإصدار
       ],
       language: language === "ar" ? "ar" : "en_US",
-<<<<<<< HEAD
-      recipientName: StudentName,
-=======
       recipientName: student.name,
->>>>>>> master
       messageType: "certificate_issued",
       fallbackToEnglish: true,
     });
@@ -3245,10 +3201,6 @@ try {
   console.error("Error sending WhatsApp message:", error);
   // لا نوقف العملية في حالة فشل إرسال رسالة الواتساب
 }
-<<<<<<< HEAD
-
-=======
->>>>>>> master
     // 🔔 إنشاء تنبيه للطالب
     await Notification.create({
       userId: StudentId,

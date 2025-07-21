@@ -179,18 +179,10 @@ const createStudent = async (req, res) => {
     to: phoneNumber,
   };
   sendEmail(mailOptions, smsOptions);
-<<<<<<< HEAD
-
-  // إرسال رسالة واتساب ترحيبية
-  try {
-    const { VERIFICATION_TEMPLATES } = require("../config/whatsapp-templates");
-    const { sendWhatsAppTemplate } = require("../utils/sendWhatsAppVerificationCode");
-=======
   // إرسال رسالة واتساب ترحيبية
   try {
     const { VERIFICATION_TEMPLATES } = require("../config/whatsapp-templates");
     const { sendWhatsAppTemplate } = require("../utils/whatsapp");
->>>>>>> master
     
     const language = 'ar'; // أو يمكنك جعلها متغيرة حسب لغة المستخدم
     const templateName = language === "ar"
@@ -206,16 +198,7 @@ const createStudent = async (req, res) => {
       messageType: "welcome",
       fallbackToEnglish: true,
     });
-<<<<<<< HEAD
-  } catch (error) {
-    console.error("Error sending welcome WhatsApp message:", error);
-    // لا نوقف العملية في حالة فشل إرسال رسالة الواتساب
-  }
-
-  res.send({
-=======
     res.send({
->>>>>>> master
     status: 201,
     data: null,
     msg: {
@@ -282,18 +265,10 @@ const createTeacher = async (req, res) => {
     to: phone,
   };
   sendEmail(mailOptions, smsOptions);
-<<<<<<< HEAD
-
-  // إرسال رسالة واتساب ترحيبية
-  try {
-    const { VERIFICATION_TEMPLATES } = require("../config/whatsapp-templates");
-    const { sendWhatsAppTemplate } = require("../utils/sendWhatsAppVerificationCode");
-=======
    // إرسال رسالة واتساب ترحيبية
   try {
     const { VERIFICATION_TEMPLATES } = require("../config/whatsapp-templates");
     const { sendWhatsAppTemplate } = require("../utils/whatsapp");
->>>>>>> master
     
     const language = 'ar'; // أو يمكنك جعلها متغيرة حسب لغة المستخدم
     const templateName = language === "ar"
@@ -309,14 +284,6 @@ const createTeacher = async (req, res) => {
       messageType: "welcome",
       fallbackToEnglish: true,
     });
-<<<<<<< HEAD
-  } catch (error) {
-    console.error("Error sending welcome WhatsApp message:", error);
-    // لا نوقف العملية في حالة فشل إرسال رسالة الواتساب
-  }
-
-=======
->>>>>>> master
   res.send({
     status: 201,
     data: null,
@@ -330,7 +297,6 @@ const createTeacher = async (req, res) => {
     // لا نوقف العملية في حالة فشل إرسال رسالة الواتساب
   }
 };
-
 //WhatsData
 const getWhatsData = async (req, res) => {
   const objwhatsData = await WhatsData.findOne({
@@ -379,22 +345,14 @@ const getProcessedCheckoutRequests = async (req, res) => {
     },
   });
 };
-<<<<<<< HEAD
-
-const { sendWhatsAppTemplate } = require("../utils/sendWhatsAppVerificationCode");
-const { VERIFICATION_TEMPLATES } = require("../config/whatsapp-templates");
-
-=======
 const { sendWhatsAppTemplate } = require("../utils/whatsapp");
 const { VERIFICATION_TEMPLATES } = require("../config/whatsapp-templates");
->>>>>>> master
 const acceptCheckout = async (req, res) => {
   const { checkoutId } = req.params;
   const checkout = await CheckoutRequest.findOne({
     where: {
       id: checkoutId,
     },
-    include: [Teacher]
   });
   if (!checkout) {
     throw new serverErrs.BAD_REQUEST({
@@ -402,13 +360,6 @@ const acceptCheckout = async (req, res) => {
       english: "checkout request not found",
     });
   }
-<<<<<<< HEAD
-  
-  await checkout.update({ status: 1 });
-  
-  // إرسال إشعار واتساب للمعلم
-  try {
-=======
   const teacher = await Teacher.findOne({
     where: {
       id: checkout.TeacherId, // افترض أن المعلم مرتبط بـ TeacherId في الطلب
@@ -416,7 +367,6 @@ const acceptCheckout = async (req, res) => {
   });
   await checkout.update({ status: 1 });
    try {
->>>>>>> master
     const teacher = checkout.Teacher;
     if (teacher && teacher.phone) {
       const templateName = teacher.language === 'ar' 
@@ -437,14 +387,6 @@ const acceptCheckout = async (req, res) => {
         fallbackToEnglish: true,
       });
     }
-<<<<<<< HEAD
-  } catch (error) {
-    console.error('خطأ في إرسال إشعار القبول:', error);
-    // لا نوقف العملية في حالة فشل إرسال الإشعار
-  }
-  
-=======
->>>>>>> master
   res.send({
     status: 201,
     msg: {
@@ -460,40 +402,21 @@ const acceptCheckout = async (req, res) => {
 
 const rejectCheckout = async (req, res) => {
   const { checkoutId } = req.params;
-<<<<<<< HEAD
-  const { rejectionReason } = req.body; // سبب الرفض (اختياري)
-  
-=======
   const { rejectionReason } = req.body;
   // جلب تفاصيل الطلب
->>>>>>> master
   const checkout = await CheckoutRequest.findOne({
     where: {
       id: checkoutId,
     },
-    include: [Teacher]
   });
-<<<<<<< HEAD
-  
-=======
 
   // إذا لم يتم العثور على الطلب
->>>>>>> master
   if (!checkout) {
     throw new serverErrs.BAD_REQUEST({
       arabic: "طلب الدفع غير موجود",
       english: "Checkout request not found",
     });
   }
-<<<<<<< HEAD
-  
-  await checkout.update({ 
-    status: -1,
-    rejectionReason: rejectionReason || null
-  });
-  
-  // إرسال إشعار واتساب للمعلم
-=======
 
   // الحصول على المعلم المرتبط بالطلب
   const teacher = await Teacher.findOne({
@@ -530,7 +453,6 @@ const rejectCheckout = async (req, res) => {
   await checkout.update({ status: -1 });
 
     // إرسال إشعار واتساب للمعلم
->>>>>>> master
   try {
     const teacher = checkout.Teacher;
     if (teacher && teacher.phone) {
@@ -548,11 +470,7 @@ const rejectCheckout = async (req, res) => {
       if (rejectionReason) {
         variables.push(rejectionReason);
       } else {
-<<<<<<< HEAD
-        variables.push(teacher.language === 'ar' ? 'لا يوجد سبب محدد' : 'No specific reason');
-=======
         variables.push(teacher.language === 'ar' ? 'تم رفض طلب الدفع  وتم خصم المبلغ من الرصيد المستحق' : 'Checkout request rejected and amount deducted from dues');
->>>>>>> master
       }
       
       await sendWhatsAppTemplate({
@@ -565,25 +483,12 @@ const rejectCheckout = async (req, res) => {
         fallbackToEnglish: true,
       });
     }
-<<<<<<< HEAD
-  } catch (error) {
-    console.error('خطأ في إرسال إشعار الرفض:', error);
-    // لا نوقف العملية في حالة فشل إرسال الإشعار
-  }
-  
-=======
       // الرد على العميل
->>>>>>> master
   res.send({
-    status: 200,
+    status: 201,
     msg: {
-<<<<<<< HEAD
-      arabic: "تم رفض طلب الدفع بنجاح",
-      english: "Checkout request rejected successfully",
-=======
       arabic: "تم رفض طلب الدفع  وتم خصم المبلغ من الرصيد المستحق",
       english: "Checkout request rejected and amount deducted from dues",
->>>>>>> master
     },
   });
   } catch (error) {
