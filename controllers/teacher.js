@@ -60,6 +60,7 @@ const Lessons = require("../models/Lesson");
 const StudentLecture = require("../models/StudentLecture");
 const convertCurrency = require("../utils/convertCurrency");
 const Notification = require("../models/Notification");
+const { VERIFICATION_TEMPLATES } = require("../config/whatsapp-templates");
 
 dotenv.config();
 let currencyConverter = new CC();
@@ -1453,7 +1454,6 @@ const endLesson = async (req, res) => {
     });
   }
 };
-
 const requestCheckout = async (req, res) => {
   try {
     const { TeacherId } = req.params;
@@ -1533,8 +1533,42 @@ const requestCheckout = async (req, res) => {
     await teacher.update({
       dues: dues + Number(amount),
     });
+    // إرسال إشعار واتساب للإداريين
+    try {
+      const admins = await Admin.findAll({
+        where: { isSuperAdmin: true },
+        attributes: ['phone', 'language']
+      });
 
-    return res.status(201).send({
+      const templateName = (admins[0]?.language === 'ar') ? 
+        VERIFICATION_TEMPLATES.WITHDRAWAL_REQUEST_AR : 
+        VERIFICATION_TEMPLATES.WITHDRAWAL_REQUEST_EN;
+
+      const formattedAmount = amount.toLocaleString();
+      const teacherName = `${teacher.firstName} ${teacher.lastName}`;
+      
+      // إرسال الإشعار لكل مدير
+      await Promise.all(admins.map(async (admin) => {
+        try {
+          await sendWhatsAppTemplate({
+            to: admin.phone.startsWith('+') ? admin.phone : `+${admin.phone}`,
+            templateName,
+            variables: [
+              teacherName,
+              formattedAmount,
+              method === 'bank' ? bankInfo.bankName : phoneNumber,
+              new Date().toLocaleDateString(admin.language === 'ar' ? 'ar-EG' : 'en-US')
+            ],
+            language: admin.language === 'ar' ? 'ar' : 'en_US',
+            recipientName: admin.name || 'Admin',
+            messageType: 'withdrawal_request',
+            fallbackToEnglish: true,
+          });
+        } catch (error) {
+          console.error(`فشل إرسال إشعار السحب إلى ${admin.phone}:`, error);
+        }
+      }));
+      return res.status(201).send({
       status: 201,
       data: checkoutRequest,
       msg: {
@@ -1542,7 +1576,10 @@ const requestCheckout = async (req, res) => {
         english: "Request sent successfully",
       },
     });
-
+    } catch (error) {
+      console.error('خطأ في إرسال إشعارات الواتساب:', error);
+      // لا نوقف العملية في حالة فشل إرسال الإشعار
+    }
   } catch (error) {
     console.error(error);
     return res.status(500).send({
@@ -3136,7 +3173,34 @@ const addEvaluations = async (req, res) => {
 
       await sendEmail(mailOptions);
     }
-
+    // إرسال رسالة واتساب
+try {
+  const { VERIFICATION_TEMPLATES } = require("../config/whatsapp-templates");
+  const { sendWhatsAppTemplate } = require("../utils/whatsapp");
+  
+  const templateName = language === "ar" 
+    ? VERIFICATION_TEMPLATES.CERTIFICATE_ISSUED_AR 
+    : VERIFICATION_TEMPLATES.CERTIFICATE_ISSUED_EN;
+  
+  if (student && student.phoneNumber) {
+    await sendWhatsAppTemplate({
+      to: student.phoneNumber.startsWith('+') ? student.phoneNumber : `+${student.phoneNumber}`,
+      templateName,
+      variables: [
+        student.name,                    // اسم الطالب
+        trainingStage,                  // عنوان الشهادة
+        new Date(certificateDate).toLocaleDateString(language === "ar" ? "ar-EG" : "en-US") // تاريخ الإصدار
+      ],
+      language: language === "ar" ? "ar" : "en_US",
+      recipientName: student.name,
+      messageType: "certificate_issued",
+      fallbackToEnglish: true,
+    });
+  }
+} catch (error) {
+  console.error("Error sending WhatsApp message:", error);
+  // لا نوقف العملية في حالة فشل إرسال رسالة الواتساب
+}
     // 🔔 إنشاء تنبيه للطالب
     await Notification.create({
       userId: StudentId,

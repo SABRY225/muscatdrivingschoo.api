@@ -8,7 +8,6 @@ const {
   CurriculumTeacher, RemoteSession, F2FSessionStd,
   F2FSessionTeacher, Certificates, Experience,
   EducationDegree, TeacherDay,
-  // ADD By eng.reem.shwky@gamil.com
   TrainingCategoryType, TeacherTypes, LimeType,
   Package, Rate, DrivingLicenses,
   TeacherLecture, TeacherLimits,
@@ -180,7 +179,26 @@ const createStudent = async (req, res) => {
     to: phoneNumber,
   };
   sendEmail(mailOptions, smsOptions);
-  res.send({
+  // إرسال رسالة واتساب ترحيبية
+  try {
+    const { VERIFICATION_TEMPLATES } = require("../config/whatsapp-templates");
+    const { sendWhatsAppTemplate } = require("../utils/whatsapp");
+    
+    const language = 'ar'; // أو يمكنك جعلها متغيرة حسب لغة المستخدم
+    const templateName = language === "ar"
+      ? VERIFICATION_TEMPLATES.WELCOME_STUDENT_AR
+      : VERIFICATION_TEMPLATES.WELCOME_STUDENT_EN;
+    
+    await sendWhatsAppTemplate({
+      to: "+" + phoneNumber, // إضافة علامة + للرقم
+      templateName,
+      variables: [newStudent.name || "الطالب"],
+      language: language === "ar" ? "ar" : "en_US",
+      recipientName: newStudent.name || "الطالب",
+      messageType: "welcome",
+      fallbackToEnglish: true,
+    });
+    res.send({
     status: 201,
     data: null,
     msg: {
@@ -188,6 +206,10 @@ const createStudent = async (req, res) => {
       english: "successfully created new account",
     },
   });
+  } catch (error) {
+    console.error("Error sending welcome WhatsApp message:", error);
+    // لا نوقف العملية في حالة فشل إرسال رسالة الواتساب
+  }
 };
 
 const createTeacher = async (req, res) => {
@@ -243,6 +265,25 @@ const createTeacher = async (req, res) => {
     to: phone,
   };
   sendEmail(mailOptions, smsOptions);
+   // إرسال رسالة واتساب ترحيبية
+  try {
+    const { VERIFICATION_TEMPLATES } = require("../config/whatsapp-templates");
+    const { sendWhatsAppTemplate } = require("../utils/whatsapp");
+    
+    const language = 'ar'; // أو يمكنك جعلها متغيرة حسب لغة المستخدم
+    const templateName = language === "ar"
+      ? VERIFICATION_TEMPLATES.WELCOME_TEACHER_AR
+      : VERIFICATION_TEMPLATES.WELCOME_TEACHER_EN;
+    
+    await sendWhatsAppTemplate({
+      to: "+" + phone, // إضافة علامة + للرقم
+      templateName,
+      variables: [newTeacher.firstName + " " + newTeacher.lastName || "المدرب"],
+      language: language === "ar" ? "ar" : "en_US",
+      recipientName: newTeacher.firstName + " " + newTeacher.lastName || "المدرب",
+      messageType: "welcome",
+      fallbackToEnglish: true,
+    });
   res.send({
     status: 201,
     data: null,
@@ -251,6 +292,10 @@ const createTeacher = async (req, res) => {
       english: "successfully created new account",
     },
   });
+  } catch (error) {
+    console.error("Error sending welcome WhatsApp message:", error);
+    // لا نوقف العملية في حالة فشل إرسال رسالة الواتساب
+  }
 };
 //WhatsData
 const getWhatsData = async (req, res) => {
@@ -300,7 +345,8 @@ const getProcessedCheckoutRequests = async (req, res) => {
     },
   });
 };
-
+const { sendWhatsAppTemplate } = require("../utils/whatsapp");
+const { VERIFICATION_TEMPLATES } = require("../config/whatsapp-templates");
 const acceptCheckout = async (req, res) => {
   const { checkoutId } = req.params;
   const checkout = await CheckoutRequest.findOne({
@@ -314,19 +360,49 @@ const acceptCheckout = async (req, res) => {
       english: "checkout request not found",
     });
   }
+  const teacher = await Teacher.findOne({
+    where: {
+      id: checkout.TeacherId, // افترض أن المعلم مرتبط بـ TeacherId في الطلب
+    },
+  });
   await checkout.update({ status: 1 });
+   try {
+    const teacher = checkout.Teacher;
+    if (teacher && teacher.phone) {
+      const templateName = teacher.language === 'ar' 
+        ? VERIFICATION_TEMPLATES.WITHDRAWAL_APPROVED_AR 
+        : VERIFICATION_TEMPLATES.WITHDRAWAL_APPROVED_EN;
+      
+      await sendWhatsAppTemplate({
+        to: teacher.phone.startsWith('+') ? teacher.phone : `+${teacher.phone}`,
+        templateName,
+        variables: [
+          `${teacher.firstName} ${teacher.lastName}`,
+          checkout.value.toLocaleString(),
+          new Date().toLocaleDateString(teacher.language === 'ar' ? 'ar-EG' : 'en-US')
+        ],
+        language: teacher.language === 'ar' ? 'ar' : 'en_US',
+        recipientName: `${teacher.firstName} ${teacher.lastName}`,
+        messageType: 'withdrawal_approved',
+        fallbackToEnglish: true,
+      });
+    }
   res.send({
     status: 201,
     msg: {
       arabic: "تم قبول طلب الدفع بنجاح",
-      english: "successful accepting Checkout Requests",
+      english: "Checkout request accepted successfully",
     },
   });
+  } catch (error) {
+    console.error('خطأ في إرسال إشعار القبول:', error);
+    // لا نوقف العملية في حالة فشل إرسال الإشعار
+  }
 };
 
 const rejectCheckout = async (req, res) => {
   const { checkoutId } = req.params;
-
+  const { rejectionReason } = req.body;
   // جلب تفاصيل الطلب
   const checkout = await CheckoutRequest.findOne({
     where: {
@@ -376,14 +452,50 @@ const rejectCheckout = async (req, res) => {
   // تحديث حالة الطلب إلى مرفوض
   await checkout.update({ status: -1 });
 
-  // الرد على العميل
+    // إرسال إشعار واتساب للمعلم
+  try {
+    const teacher = checkout.Teacher;
+    if (teacher && teacher.phone) {
+      const templateName = teacher.language === 'ar' 
+        ? VERIFICATION_TEMPLATES.WITHDRAWAL_REJECTED_AR 
+        : VERIFICATION_TEMPLATES.WITHDRAWAL_REJECTED_EN;
+      
+      const variables = [
+        `${teacher.firstName} ${teacher.lastName}`,
+        checkout.value.toLocaleString(),
+        new Date().toLocaleDateString(teacher.language === 'ar' ? 'ar-EG' : 'en-US')
+      ];
+      
+      // إضافة سبب الرفض إذا وجد
+      if (rejectionReason) {
+        variables.push(rejectionReason);
+      } else {
+        variables.push(teacher.language === 'ar' ? 'تم رفض طلب الدفع  وتم خصم المبلغ من الرصيد المستحق' : 'Checkout request rejected and amount deducted from dues');
+      }
+      
+      await sendWhatsAppTemplate({
+        to: teacher.phone.startsWith('+') ? teacher.phone : `+${teacher.phone}`,
+        templateName,
+        variables,
+        language: teacher.language === 'ar' ? 'ar' : 'en_US',
+        recipientName: `${teacher.firstName} ${teacher.lastName}`,
+        messageType: 'withdrawal_rejected',
+        fallbackToEnglish: true,
+      });
+    }
+      // الرد على العميل
   res.send({
     status: 201,
     msg: {
-      arabic: "تم رفض طلب الدفع بنجاح وتم خصم المبلغ من الرصيد المستحق",
-      english: "Checkout request rejected successfully and amount deducted from dues",
+      arabic: "تم رفض طلب الدفع  وتم خصم المبلغ من الرصيد المستحق",
+      english: "Checkout request rejected and amount deducted from dues",
     },
   });
+  } catch (error) {
+    console.error('خطأ في إرسال إشعار الرفض:', error);
+    // لا نوقف العملية في حالة فشل إرسال الإشعار
+  }
+  
 };
 
 

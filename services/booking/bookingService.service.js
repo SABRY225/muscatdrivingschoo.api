@@ -16,6 +16,6 @@ exports.book = async (data) => {
   } else if (typeOfPayment === "wallet") {
     return await handleWalletPayment(updatedData, price, createSession, "lesson_booking");
   }else if(typeOfPayment === "points"){
-    return await handlePointsPayment(data, price, createSession, "lesson_booking");
+    return await handlePointsPayment(updatedData, price, createSession, "lesson_booking");
   }
 };
