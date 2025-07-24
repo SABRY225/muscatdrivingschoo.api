@@ -1,4 +1,5 @@
-const { Student, Teacher } = require("../models");
+const { Student, Teacher, Admin } = require("../models");
+const { LESSON_TEMPLATES } = require("../config/whatsapp-templates");
 const Lessons = require("../models/Lesson");
 const Notification = require("../models/Notification");
 const { sendEmailRequest } = require("../utils/sendEmailRequestLession");
@@ -99,6 +100,40 @@ const createRequest = async (req, res, next) => {
         },
       });
       console.log("✅ WhatsApp notifications sent for lesson request");
+      
+      // إرسال إشعار تأكيد الحجز لجميع المشرفين النشطين
+      try {
+        const admins = await Admin.findAll({
+          where: { isActive: true },
+          attributes: ['phone', 'name']
+        });
+
+        for (const admin of admins) {
+          try {
+            await sendWhatsAppTemplate({
+              to: admin.phone.startsWith('+') ? admin.phone : `+${admin.phone}`,
+              templateName: LESSON_TEMPLATES.BOOKING_CONFIRMATION_ADMIN_AR,
+              variables: [
+                student.name,
+                teacher ? `${teacher.firstName} ${teacher.lastName}` : 'مدرس غير محدد',
+                date,
+                time,
+                `${price} ${currency}`
+              ],
+              language: 'ar',
+              recipientName: admin.name || 'مدير النظام',
+              messageType: 'booking_confirmation',
+              fallbackToEnglish: false
+            });
+          } catch (error) {
+            console.error(`فشل إرسال إشعار تأكيد الحجز إلى المشرف ${admin.phone}:`, error);
+            // المتابعة مع المشرفين الآخرين في حالة الفشل
+          }
+        }
+      } catch (error) {
+        console.error('خطأ في إرسال إشعار تأكيد الحجز للمشرفين:', error);
+      }
+
       res.status(200).send({
       status: 200,
       message: {
@@ -557,7 +592,44 @@ const acceptRequest = async (req, res) => {
         },
       });
       console.log("✅ WhatsApp lesson approval notification sent");
-      return res.status(200).send({
+    
+    // إرسال إشعار تحديث حالة الدرس لجميع المشرفين النشطين
+    try {
+      const admins = await Admin.findAll({
+        where: { isActive: true },
+        attributes: ['phone', 'name']
+      });
+
+      const teacher = await Teacher.findByPk(lession.teacherId);
+      const student = await Student.findByPk(lession.studentId);
+
+      for (const admin of admins) {
+        try {
+          await sendWhatsAppTemplate({
+            to: admin.phone.startsWith('+') ? admin.phone : `+${admin.phone}`,
+            templateName: LESSON_TEMPLATES.LESSON_STATUS_ADMIN_AR,
+            variables: [
+              student.name,
+              teacher ? `${teacher.firstName} ${teacher.lastName}` : 'مدرس غير محدد',
+              'تمت الموافقة',
+              lession.date,
+              lession.time
+            ],
+            language: 'ar',
+            recipientName: admin.name || 'مدير النظام',
+            messageType: 'lesson_status_update',
+            fallbackToEnglish: false
+          });
+        } catch (error) {
+          console.error(`فشل إرسال إشعار تحديث حالة الدرس إلى المشرف ${admin.phone}:`, error);
+          // المتابعة مع المشرفين الآخرين في حالة الفشل
+        }
+      }
+    } catch (error) {
+      console.error('خطأ في إرسال إشعار تحديث حالة الدرس للمشرفين:', error);
+    }
+
+    return res.status(200).send({
       status: 200,
       message: {
         arabic: "تم تأكيد طلب الحجز بنجاح",

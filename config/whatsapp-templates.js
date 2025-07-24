@@ -50,10 +50,12 @@ const PAYMENT_TEMPLATES = {
   // تأكيد شحن المحفظة
   WALLET_CHARGE_CONFIRMATION_AR: "wallet_charge_confirmation_ar",
   WALLET_CHARGE_CONFIRMATION_EN: "wallet_charge_confirmation_en",
+  WALLET_CHARGE_ADMIN_AR: "wallet_charge_admin_ar", // إضافة قالب إشعار شحن الرصيد للمشرف
 
   // تأكيد الدفع
   PAYMENT_CONFIRMATION_AR: "payment_confirmation_ar",
   PAYMENT_CONFIRMATION_EN: "payment_confirmation_en",
+  PAYMENT_CONFIRMATION_ADMIN_AR: "payment_confirmation_admin_ar", // إضافة قالب تأكيد الدفع للمشرف
 
   // فواتير المدفوعات
   WALLET_CHARGE_INVOICE_AR: "wallet_charge_invoice_ar",
@@ -95,6 +97,15 @@ const LESSON_TEMPLATES = {
   // طلبات الدروس
   LESSON_REQUEST_TEACHER_AR: "lesson_request_teacher_ar",
   LESSON_REQUEST_TEACHER_EN: "lesson_request_teacher_en",
+  
+  // حالة حجز الدرس
+  LESSON_STATUS_ADMIN_AR: "lesson_status_admin_ar",
+  
+  // جلسة الدرس
+  LESSON_SESSION_ADMIN_AR: "lesson_session_admin_ar",
+  
+  // تأكيد الحجز
+  BOOKING_CONFIRMATION_ADMIN_AR: "booking_confirmation_admin_ar",
 
   // موافقة ورفض الدروس
   LESSON_APPROVED_STUDENT_AR: "lesson_approved_student_ar",
@@ -178,6 +189,7 @@ const BOOKING_TEMPLATES = {
 
 // قوالب إشعارات الأدمن - Admin Notifications Templates
 const ADMIN_TEMPLATES = {
+  // === القوالب القديمة ===
   // إشعار حجز جديد
   NEW_BOOKING_NOTIFICATION_AR: "new_booking_notification_ar",
   NEW_BOOKING_NOTIFICATION_EN: "new_booking_notification_en",
@@ -197,6 +209,27 @@ const ADMIN_TEMPLATES = {
   // إشعار مستخدم جديد للأدمن
   NEW_USER_ADMIN_NOTIFICATION_AR: "new_user_admin_notification_ar",
   NEW_USER_ADMIN_NOTIFICATION_EN: "new_user_admin_notification_en",
+  
+  // === القوالب الجديدة ===
+  // إشعار تأكيد دفع
+  PAYMENT_CONFIRMATION_ADMIN_AR: "payment_confirmation_admin_ar",
+  PAYMENT_CONFIRMATION_ADMIN_EN: "payment_confirmation_admin_en",
+  
+  // إشعار شحن رصيد طالب
+  WALLET_CHARGE_ADMIN_AR: "wallet_charge_admin_ar",
+  WALLET_CHARGE_ADMIN_EN: "wallet_charge_admin_en",
+  
+  // إشعار حالة حجز درس
+  LESSON_STATUS_ADMIN_AR: "lesson_status_admin_ar",
+  LESSON_STATUS_ADMIN_EN: "lesson_status_admin_en",
+  
+  // إشعار تأكيد حجز
+  BOOKING_CONFIRMATION_ADMIN_AR: "booking_confirmation_admin_ar",
+  BOOKING_CONFIRMATION_ADMIN_EN: "booking_confirmation_admin_en",
+  
+  // إشعار بدء/انتهاء درس
+  LESSON_SESSION_ADMIN_AR: "lesson_session_admin_ar",
+  LESSON_SESSION_ADMIN_EN: "lesson_session_admin_en",
 };
 
 // قوالب الشكاوى والمشاكل - Complaints & Issues Templates

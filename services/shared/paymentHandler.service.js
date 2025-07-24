@@ -2,7 +2,7 @@ const {
   Wallet,
   Student,
   Teacher,
-  Admin,
+  Admin: AdminModel,
   FinancialRecord,
   Session,
   StudentTest,
@@ -43,7 +43,8 @@ const getServiceType = (type, language = 'ar') => {
   
   return language === 'ar' ? service.ar : service.en;
 };
-const { PAYMENT_TEMPLATES } = require("../../config/whatsapp-templates");
+const { PAYMENT_TEMPLATES, LESSON_TEMPLATES } = require("../../config/whatsapp-templates");
+// Admin model is already imported above as AdminModel
 const { sendInvoiceWhatsApp } = require("../../utils/invoiceWhatsApp");
 const Invite = require("../../models/Invite");
 const Lessons = require("../../models/Lesson");
@@ -201,7 +202,7 @@ exports.handleWalletPayment = async (data, newPrice, createEntityFn, type) => {
   });
 
   const teacher = await Teacher.findOne({ where: { id: TeacherId } });
-  const admin = await Admin.findOne({ where: { id: "1" } });
+  const admin = await AdminModel.findOne({ where: { id: "1" } });
 
   const discount = 1 - +admin.profitRatio / 100.0;
   teacher.totalAmount += +newPrice * discount;
@@ -344,7 +345,7 @@ exports.handlePointsPayment = async (data, newPrice, createEntityFn, type) => {
   });
 
   const teacher = await Teacher.findOne({ where: { id: TeacherId } });
-  const admin = await Admin.findOne({ where: { id: "1" } });
+  const admin = await AdminModel.findOne({ where: { id: "1" } });
 
   const discount = 1 - +admin.profitRatio / 100.0;
   teacher.totalAmount += +newPrice * discount;
@@ -538,6 +539,38 @@ exports.handleconfirmePayment = async (language) => {
         "charge_success",
       );
 
+      // Send WhatsApp notification to all active admins
+      try {
+        const admins = await AdminModel.findAll({
+          where: { isActive: true },
+          attributes: ['phone', 'name']
+        });
+
+        for (const admin of admins) {
+          try {
+            await sendWhatsAppTemplate({
+              to: admin.phone.startsWith('+') ? admin.phone : `+${admin.phone}`,
+              templateName: PAYMENT_TEMPLATES.WALLET_CHARGE_ADMIN_AR,
+              variables: [
+                student.name,
+                `${wallet.price} ${wallet.currency}`,
+                `CHG-${wallet.id}-${Date.now()}`,
+                `${student.wallet} ${wallet.currency}` // Current balance after adding the charge
+              ],
+              language: 'ar',
+              recipientName: admin.name || 'مدير النظام',
+              messageType: 'wallet_charge',
+              fallbackToEnglish: false
+            });
+          } catch (error) {
+            console.error(`Failed to send wallet charge notification to admin ${admin.phone}:`, error);
+            // Continue with other admins if one fails
+          }
+        }
+      } catch (error) {
+        console.error('Error sending admin wallet charge notification:', error);
+      }
+
       return {
         status: 201,
         data: student,
@@ -564,7 +597,7 @@ exports.handleconfirmePayment = async (language) => {
   });
 
   const teacher = await Teacher.findOne({ where: { id: global.TeacherId } });
-  const admin = await Admin.findOne();
+  const admin = await AdminModel.findOne();
   const discount = 1 - +admin.profitRatio / 100.0;
 
   teacher.totalAmount += +session.price * discount;
@@ -712,6 +745,38 @@ exports.handleconfirmePayment = async (language) => {
     });
   } catch (whatsappError) {
     console.error("❌ فشل إرسال رسالة واتساب لتأكيد الدفع:", whatsappError.message);
+  }
+
+  // Send payment confirmation to all active admins
+  try {
+    const admins = await AdminModel.findAll({
+      where: { isActive: true },
+      attributes: ['phone', 'name']
+    });
+
+    for (const admin of admins) {
+      try {
+        await sendWhatsAppTemplate({
+          to: admin.phone.startsWith('+') ? admin.phone : `+${admin.phone}`,
+          templateName: PAYMENT_TEMPLATES.PAYMENT_CONFIRMATION_ADMIN_AR,
+          variables: [
+            student.name,
+            getServiceType(session.type, 'ar'),
+            `${session.price} ${session.currency}`,
+            `PAY-${session.id}-${Date.now()}`
+          ],
+          language: 'ar',
+          recipientName: admin.name || 'مدير النظام',
+          messageType: 'payment_confirmation',
+          fallbackToEnglish: false
+        });
+      } catch (error) {
+        console.error(`Failed to send payment confirmation to admin ${admin.phone}:`, error);
+        // Continue with other admins if one fails
+      }
+    }
+  } catch (error) {
+    console.error('Error sending admin payment confirmation:', error);
   }
 
   await sendBookingNotification({

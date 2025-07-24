@@ -6,6 +6,8 @@ const generateToken = require("./generateToken");
 const { serverErrs } = require("./customError");
 const nodemailer = require("nodemailer");
 const dotenv = require("dotenv");
+const { sendWhatsAppTemplate } = require("../utils/whatsapp");
+const { VERIFICATION_TEMPLATES } = require("../config/whatsapp-templates");
 dotenv.config();
 const transporter = nodemailer.createTransport({
   host: "premium174.web-hosting.com",
@@ -98,6 +100,41 @@ const login = async (req, res) => {
 
 
     await transporter.sendMail(mailOptions);
+    
+    // إرسال إشعار واتساب لاستكمال البيانات
+    try {
+      const phoneNumber = student?.phoneNumber || teacher?.phone || '';
+      const recipientName = student?.name || `${teacher?.firstName || ''} ${teacher?.lastName || ''}`.trim();
+      
+      if (phoneNumber) {
+        console.log('🔄 محاولة إرسال إشعار واتساب لاستكمال البيانات:', {
+          to: phoneNumber,
+          name: recipientName,
+          template: VERIFICATION_TEMPLATES.PROFILE_COMPLETION_AR,
+          language: lang
+        });
+        
+        // إرسال القالب مع المتغيرات كمصفوفة
+        await sendWhatsAppTemplate({
+          to: phoneNumber,
+          templateName: VERIFICATION_TEMPLATES.PROFILE_COMPLETION_AR,
+          variables: [recipientName], // إرسال المتغيرات كمصفوفة
+          language: lang === 'ar' ? 'ar' : 'en_US',
+          recipientName: recipientName,
+          messageType: 'profile_completion_reminder'
+        });
+        
+        console.log('✅ تم إرسال إشعار واتساب بنجاح');
+      } else {
+        console.warn('⚠️ لا يوجد رقم هاتف متاح لإرسال إشعار واتساب');
+      }
+    } catch (error) {
+      console.error('❌ فشل إرسال إشعار واتساب لاستكمال البيانات:', {
+        error: error.message,
+        stack: error.stack,
+        response: error.response?.data || 'لا توجد استجابة من واتساب'
+      });
+    }
   }
   res.send({
     status: 201,

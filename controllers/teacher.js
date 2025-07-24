@@ -60,7 +60,7 @@ const Lessons = require("../models/Lesson");
 const StudentLecture = require("../models/StudentLecture");
 const convertCurrency = require("../utils/convertCurrency");
 const Notification = require("../models/Notification");
-const { VERIFICATION_TEMPLATES } = require("../config/whatsapp-templates");
+const { VERIFICATION_TEMPLATES, LESSON_TEMPLATES } = require("../config/whatsapp-templates");
 
 dotenv.config();
 let currencyConverter = new CC();
@@ -247,7 +247,7 @@ const signPassword = async (req, res, next) => {
     sendEmail(mailOptions, smsOptions);
 
     try {
-      const { VERIFICATION_TEMPLATES } = require("../config/whatsapp-templates");
+      const { VERIFICATION_TEMPLATES, LESSON_TEMPLATES } = require("../config/whatsapp-templates");
       const templateName = language === "ar"
         ? VERIFICATION_TEMPLATES.WELCOME_TEACHER_AR
         : VERIFICATION_TEMPLATES.WELCOME_TEACHER_EN;
@@ -1377,6 +1377,43 @@ const acceptLesson = async (req, res) => {
 
   await session.update({ teacherAccept: true });
 
+  // إرسال إشعار قبول المعلم للجلسة لجميع المشرفين النشطين
+  try {
+    const [student, teacher] = await Promise.all([
+      Student.findByPk(session.StudentId),
+      Teacher.findByPk(session.TeacherId)
+    ]);
+
+    const admins = await Admin.findAll({
+      where: { isActive: true },
+      attributes: ['phone', 'name']
+    });
+
+    for (const admin of admins) {
+      try {
+        await sendWhatsAppTemplate({
+          to: admin.phone.startsWith('+') ? admin.phone : `+${admin.phone}`,
+          templateName: LESSON_TEMPLATES.LESSON_ACCEPTED_ADMIN_AR,
+          variables: [
+            student?.name || 'طالب',
+            teacher ? `${teacher.firstName} ${teacher.lastName}` : 'مدرس',
+            session.date,
+            session.time,
+            session.period || 'غير محدد'
+          ],
+          language: 'ar',
+          recipientName: admin.name || 'مدير النظام',
+          messageType: 'lesson_accepted',
+          fallbackToEnglish: false
+        });
+      } catch (error) {
+        console.error(`فشل إرسال إشعار قبول الجلسة إلى المشرف ${admin.phone}:`, error);
+        // المتابعة مع المشرفين الآخرين في حالة الفشل
+      }
+    }
+  } catch (error) {
+    console.error('خطأ في إرسال إشعار قبول الجلسة للمشرفين:', error);
+  }
 
   res.send({
     status: 201,
@@ -1420,7 +1457,7 @@ const endLesson = async (req, res) => {
     const message = lang === "ar" ? "انتهى الدرس الآن." : "The lesson is now finished.";
 
 
-    // إرسال الإيميلات بالتوازي
+    // إرسال الإشعارات بالتوازي
     await Promise.all([
       sendLessonNotification({
         type: "lesson_end",
@@ -1435,6 +1472,39 @@ const endLesson = async (req, res) => {
       sendLessonEmail(student.email, lang, message, "end"),
       sendLessonEmail(teacher.email, lang, message, "end"),
     ]);
+
+    // إرسال إشعار انتهاء الجلسة لجميع المشرفين النشطين
+    try {
+      const admins = await Admin.findAll({
+        where: { isActive: true },
+        attributes: ['phone', 'name']
+      });
+
+      for (const admin of admins) {
+        try {
+          await sendWhatsAppTemplate({
+            to: admin.phone.startsWith('+') ? admin.phone : `+${admin.phone}`,
+            templateName: LESSON_TEMPLATES.LESSON_SESSION_ADMIN_AR,
+            variables: [
+              student.name,
+              teacher ? `${teacher.firstName} ${teacher.lastName}` : 'مدرس غير محدد',
+              session.date,
+              session.time,
+              session.period || 'غير محدد'
+            ],
+            language: 'ar',
+            recipientName: admin.name || 'مدير النظام',
+            messageType: 'lesson_session_end',
+            fallbackToEnglish: false
+          });
+        } catch (error) {
+          console.error(`فشل إرسال إشعار انتهاء الجلسة إلى المشرف ${admin.phone}:`, error);
+          // المتابعة مع المشرفين الآخرين في حالة الفشل
+        }
+      }
+    } catch (error) {
+      console.error('خطأ في إرسال إشعار انتهاء الجلسة للمشرفين:', error);
+    }
 
     return res.status(201).send({
       status: 201,
@@ -3173,7 +3243,7 @@ const addEvaluations = async (req, res) => {
     }
     // إرسال رسالة واتساب
 try {
-  const { VERIFICATION_TEMPLATES } = require("../config/whatsapp-templates");
+  const { VERIFICATION_TEMPLATES, LESSON_TEMPLATES } = require("../config/whatsapp-templates");
   const { sendWhatsAppTemplate } = require("../utils/whatsapp");
   
   const templateName = language === "ar" 
