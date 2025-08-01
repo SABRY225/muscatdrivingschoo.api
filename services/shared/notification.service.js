@@ -226,14 +226,19 @@ const sendLessonNotification = async ({
       }
 
       if (templateName) {
+        // Format the date and time for the notification
+        const lessonDate = new Date(lessonDetails.date);
+        const formattedDate = lessonDate.toLocaleDateString('ar-EG', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+        const formattedTime = lessonDetails.time; // Assuming time is already in a good format
+        
         await sendWhatsAppTemplate({
           to: student.phoneNumber,
           templateName,
           variables: [
             student.name || "الطالب",
             teacher?.firstName || "المدرب",
-            lessonDetails.date ,
-            lessonDetails.time ,
+            formattedDate,
+            formattedTime,
           ],
           language: templateName.includes("_ar") ? "ar" : "en_US",
           recipientName: student.name || "الطالب",
@@ -291,14 +296,19 @@ const sendLessonNotification = async ({
       }
 
       if (templateName) {
+        // Format the date and time for the notification
+        const lessonDate = new Date(lessonDetails.date);
+        const formattedDate = lessonDate.toLocaleDateString('ar-EG', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+        const formattedTime = lessonDetails.time; // Assuming time is already in a good format
+        
         await sendWhatsAppTemplate({
           to: teacher.phone,
           templateName,
           variables: [
             teacher.firstName || "المدرب",
             student?.name || "الطالب",
-            lessonDetails.date ,
-            lessonDetails.time ,
+            formattedDate, 
+            formattedTime,
           ],
           language: templateName.includes("_ar") ? "ar" : "en_US",
           recipientName: teacher.firstName || "المدرب",
